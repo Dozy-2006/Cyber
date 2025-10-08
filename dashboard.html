@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Case Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- --- Libraries for PDF and Excel Export/Import --- -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar-brand { font-weight: bold; color: #2e7d32 !important; }
+        .navbar-brand i { margin-right: 8px; }
+        .main-container { background-color: #fff; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); padding: 1.5rem; }
+        .nav-tabs .nav-link { color: #495057; }
+        .nav-tabs .nav-link.active { color: #2e7d32; font-weight: 600; border-color: #dee2e6 #dee2e6 #fff; }
+        .table-hover tbody tr:hover { background-color: #f1f1f1; }
+        .btn-action { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+        #undo-toast, #notification-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1055; }
+        tr.pending-deletion { opacity: 0.4; background-color: #ffdddd; transition: all 0.3s ease; }
+        .location-list, .user-table-container, .sheet-list-container { max-height: 250px; overflow-y: auto; }
+        .admin-card { max-width: 900px; margin: auto; }
+        .modal-dialog { max-width: 800px; }
+        .modal-body .form-label { font-weight: 500; color: #555; }
+        .modal-body .form-control, .modal-body .form-select { border-radius: 8px; padding: 10px 12px; }
+        .modal-body .form-control:focus, .modal-body .form-select:focus { border-color: #2e7d32; box-shadow: 0 0 0 0.2rem rgba(46,125,50,0.25); }
+        .field-row { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
+        .validation-length-input, .field-format-container { display: none; }
+        .validation-toggle-container { display: flex; align-items: center; gap: 10px; }
+        .validation-toggle-btn { background-color: #ccc; border: none; color: white; padding: 5px 10px; font-size: 0.8rem; font-weight: bold; border-radius: 50px; cursor: pointer; transition: background-color 0.3s ease; width: 70px; text-align: center; }
+        .validation-toggle-btn.on { background-color: #2e7d32; }
+        .validation-toggle-btn.off { background-color: #dc3545; }
+        .report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        
+        .view-toggle { text-align: right; margin-bottom: 1rem; }
+        .view-toggle .btn { color: #6c757d; }
+        .view-toggle .btn.active { color: #2e7d32; background-color: #e9f5ea; }
+        .card-view-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+        .case-card { border: 1px solid #dee2e6; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: box-shadow 0.3s ease; }
+        .case-card:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .case-card .card-header { background-color: #f8f9fa; font-weight: bold; }
+        .case-card .card-body p { margin-bottom: 0.5rem; font-size: 0.9rem; }
+        .case-card .card-body p strong { color: #495057; }
+        .case-card .card-footer { background-color: transparent; border-top: 1px solid #dee2e6; }
+        .empty-cell { background-color: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#"><i class="bi bi-shield-check-fill"></i>Case Management</a>
+            <span class="navbar-text me-3" id="welcome-message"></span>
+            <button class="btn btn-outline-danger" id="logout-button">Logout</button>
+        </div>
+    </nav>
+
+    <main class="container my-4">
+        <div id="view-container"></div>
+    </main>
+    
+    <div class="modal fade" id="case-modal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title"></h5>
+                <div class="validation-toggle-container ms-auto">
+                    <span class="form-label mb-0">Data Validation:</span>
+                    <button id="validation-toggle" class="validation-toggle-btn"></button>
+                </div>
+                <button type="button" class="btn-close ms-2" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body"><form id="case-form" class="row g-3"></form></div>
+        </div></div>
+    </div>
+
+    <div class="modal fade" id="bulk-case-modal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Bulk Add Cases</h5>
+                    <div class="validation-toggle-container ms-auto">
+                        <span class="form-label mb-0">Data Validation:</span>
+                        <button id="bulk-validation-toggle" class="validation-toggle-btn"></button>
+                    </div>
+                    <button type="button" class="btn-close ms-2" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-1">Download the template, fill it with your data, and then upload the file below.</p>
+                    <p class="small text-muted">Expected column order: <strong id="bulk-modal-headers"></strong></p>
+                    <a href="#" id="download-template-btn" class="btn btn-sm btn-outline-secondary mb-3"><i class="bi bi-download me-2"></i>Download CSV Template</a>
+                    <form id="bulk-case-form">
+                        <div class="mb-3">
+                            <label for="bulk-file-input" class="form-label">Upload CSV or Excel File:</label>
+                            <input type="file" id="bulk-file-input" class="form-control" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 mt-3">Upload and Process File</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="undo-toast" class="toast align-items-center text-bg-dark border-0">
+        <div class="d-flex"><div class="toast-body">Case deleted.<button class="btn btn-link btn-sm text-white p-0 ms-2" id="undo-btn"><strong>Undo</strong></button></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
+    </div>
+    <div id="notification-toast" class="toast align-items-center border-0">
+        <div class="d-flex"><div class="toast-body"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentSpreadsheetId = '', currentTabName = '', currentHeaders = [], currentlyEditingCaseId = null, currentSchema = [];
+        let deleteTimeout = null;
+        let searchTimeout = null; 
+        let currentData = [];
+        const caseModal = new bootstrap.Modal(document.getElementById('case-modal'));
+        const bulkCaseModal = new bootstrap.Modal(document.getElementById('bulk-case-modal'));
+        const undoToast = new bootstrap.Toast(document.getElementById('undo-toast'), { autohide: false });
+        const notificationToast = new bootstrap.Toast(document.getElementById('notification-toast'));
+
+        function downloadReport(format, dataSource, fileName) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const table = (typeof dataSource === 'string') ? document.querySelector(dataSource) : dataSource;
+
+            if (!table) {
+                showToast('Report data not found.', 'danger');
+                return;
+            }
+
+            const title = fileName.replace(/_/g, ' ');
+            fileName = `${fileName}_Report_${new Date().toISOString().slice(0,10)}`;
+
+            if (format === 'pdf') {
+                doc.text(title, 14, 15);
+                doc.autoTable({ html: table, startY: 20 });
+                doc.save(`${fileName}.pdf`);
+            } else if (format === 'excel') {
+                const wb = XLSX.utils.table_to_book(table, { sheet: "Sheet1" });
+                XLSX.writeFile(wb, `${fileName}.xlsx`);
+            }
+        }
+
+
+        function toggleValidationAttributes(shouldValidate) {
+            const form = document.getElementById('case-form');
+            form.querySelectorAll('input, select').forEach(input => {
+                const header = input.name;
+                const fieldSchema = currentSchema.find(f => f.name === header) || {};
+                
+                input.removeAttribute('required');
+                input.removeAttribute('pattern');
+                input.removeAttribute('maxlength');
+                input.removeAttribute('title');
+
+                if (shouldValidate) {
+                    if (fieldSchema.required) {
+                        input.setAttribute('required', 'true');
+                    }
+                    if (fieldSchema.type === 'date') {
+                        input.setAttribute('pattern', `\\d{4}-\\d{2}-\\d{2}`);
+                        input.setAttribute('title', `Please use YYYY-MM-DD format.`);
+                    } else if (fieldSchema.format) {
+                        let pattern = '';
+                        for (const char of fieldSchema.format) {
+                            if (char === '_') {
+                                pattern += fieldSchema.type === 'number' ? '\\d' : '.';
+                            } else {
+                                pattern += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            }
+                        }
+                        input.setAttribute('pattern', `^${pattern}$`);
+                        input.setAttribute('title', `Must match the format: ${fieldSchema.format}`);
+                    }
+                    else if (fieldSchema.type === 'number' && fieldSchema.length) {
+                        if (fieldSchema.isFixed) {
+                            input.setAttribute('pattern', `[0-9]{${fieldSchema.length}}`);
+                            input.setAttribute('title', `Must be exactly ${fieldSchema.length} digits.`);
+                        } else {
+                            input.setAttribute('pattern', `[0-9]{1,${fieldSchema.length}}`);
+                            input.setAttribute('title', `Maximum ${fieldSchema.length} digits.`);
+                            input.setAttribute('maxlength', fieldSchema.length);
+                        }
+                    } else if (fieldSchema.type === 'text' && fieldSchema.length) {
+                         input.setAttribute('maxlength', fieldSchema.length);
+                    }
+                }
+            });
+        }
+        
+        const validationToggleBtn = document.getElementById('validation-toggle');
+        const bulkValidationToggleBtn = document.getElementById('bulk-validation-toggle');
+
+        function setupValidationToggle(button) {
+            button.addEventListener('click', () => {
+                const isCurrentlyOn = button.classList.contains('on');
+                localStorage.setItem('dataValidation', !isCurrentlyOn);
+                updateValidationToggles(!isCurrentlyOn);
+            });
+        }
+        setupValidationToggle(validationToggleBtn);
+        setupValidationToggle(bulkValidationToggleBtn);
+
+        function updateValidationToggles(isOn) {
+            [validationToggleBtn, bulkValidationToggleBtn].forEach(button => {
+                if (isOn) {
+                    button.classList.add('on');
+                    button.classList.remove('off');
+                    button.textContent = 'ON';
+                } else {
+                    button.classList.add('off');
+                    button.classList.remove('on');
+                    button.textContent = 'OFF';
+                }
+            });
+            toggleValidationAttributes(isOn);
+        }
+
+
+        function showToast(message, type = 'success') {
+            const toastEl = document.getElementById('notification-toast');
+            toastEl.querySelector('.toast-body').textContent = message;
+            toastEl.className = `toast align-items-center border-0 text-bg-${type}`;
+            notificationToast.show();
+        }
+
+        function showModal(isEditing = false, caseData = {}) {
+            const form = document.getElementById('case-form');
+            form.innerHTML = '';
+            document.getElementById('modal-title').textContent = isEditing ? 'Edit Case Details' : 'Add a New Case';
+            const caseIdKey = Object.keys(caseData).find(k => k.toLowerCase() === 'caseid');
+            currentlyEditingCaseId = isEditing && caseIdKey ? caseData[caseIdKey] : null;
+            const fieldsToShow = currentSchema.length > 0 ? currentSchema.map(f => f.name) : currentHeaders;
+            
+            if (!isEditing && fieldsToShow.some(h => h.toLowerCase() === 'caseid')) {
+                const caseIdHeader = fieldsToShow.find(h => h.toLowerCase() === 'caseid');
+                caseData[caseIdHeader] = `CASE-${Date.now()}`;
+            }
+
+            fieldsToShow.forEach(header => {
+                const value = caseData[header] || '';
+                const isReadOnly = header.toLowerCase() === 'caseid';
+                const col = document.createElement('div');
+                col.className = 'col-md-6';
+                const fieldSchema = currentSchema.find(f => f.name === header) || {};
+                let inputHtml = '';
+                const inputId = `form-input-${header.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                
+                if (fieldSchema.type === 'date') {
+                     inputHtml = `<div class="input-group">
+                                        <input class="form-control" id="${inputId}" name="${header}" value="${value}" ${isReadOnly ? 'readonly' : ''} type="text" placeholder="YYYY-MM-DD">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="const el = document.getElementById('${inputId}'); el.type='date'; try { el.showPicker(); } catch(e) { el.focus(); }"><i class="bi bi-calendar-event"></i></button>
+                                      </div>`;
+                } else {
+                    inputHtml = `<input class="form-control" name="${header}" value="${value}" ${isReadOnly ? 'readonly style="background-color:#e9ecef;"' : ''}>`;
+                }
+
+                col.innerHTML = `<div class="mb-3"><label class="form-label">${header}</label>${inputHtml}</div>`;
+                form.appendChild(col);
+            });
+            form.innerHTML += '<div class="col-12 mt-3"><button class="btn btn-primary w-100" type="submit">Save Changes</button></div>';
+
+            const validationPref = localStorage.getItem('dataValidation') !== 'false';
+            updateValidationToggles(validationPref);
+
+            caseModal.show();
+        }
+
+        function renderDataView() {
+            const view = localStorage.getItem('dataView') || 'table';
+            const contentContainer = document.getElementById('data-view-wrapper'); 
+            if (!contentContainer) return;
+
+            document.getElementById('table-view-btn').classList.toggle('active', view === 'table');
+            document.getElementById('card-view-btn').classList.toggle('active', view === 'card');
+
+            if (currentData.length === 0) {
+                contentContainer.innerHTML = `<div class="text-center p-4"><p>No case data found for '${currentTabName}'.</p></div>`;
+                return;
+            }
+
+            if (view === 'table') {
+                let tableHTML = `<div class="table-responsive"><table class="table table-hover" id="main-data-table"><thead><tr>${currentHeaders.map(h => `<th>${h}</th>`).join('')}<th>Actions</th></tr></thead><tbody>`;
+                currentData.forEach(row => {
+                    const caseIdKey = Object.keys(row).find(k => k.toLowerCase() === 'caseid');
+                    const caseId = row[caseIdKey];
+                    tableHTML += `<tr id="row-${caseId}">${currentHeaders.map(h => {
+                        const val = row[h] || '';
+                        const isEmpty = val.toString().trim() === '';
+                        return `<td class="${isEmpty ? 'empty-cell' : ''}">${val}</td>`;
+                    }).join('')}
+                                <td class="action-btns"><button class="btn btn-warning btn-action edit-btn" data-casedata='${JSON.stringify(row)}'><i class="bi bi-pencil-fill"></i></button>
+                                <button class="btn btn-danger btn-action delete-btn" data-caseid="${caseId}"><i class="bi bi-trash-fill"></i></button></td></tr>`;
+                });
+                tableHTML += '</tbody></table></div>';
+                contentContainer.innerHTML = tableHTML;
+            } else { // Card View
+                let cardsHTML = '<div class="card-view-grid">';
+                currentData.forEach(row => {
+                    const caseIdKey = Object.keys(row).find(k => k.toLowerCase() === 'caseid');
+                    const caseId = row[caseIdKey];
+                    cardsHTML += `
+                        <div class="card case-card" id="row-${caseId}">
+                            <div class="card-header">${caseId}</div>
+                            <div class="card-body">
+                                ${currentHeaders.filter(h => h.toLowerCase() !== 'caseid').map(h => {
+                                    const val = row[h] || '';
+                                    const isEmpty = val.toString().trim() === '';
+                                    return `<p><strong>${h}:</strong> <span class="${isEmpty ? 'text-muted' : ''}">${isEmpty ? 'N/A' : val}</span></p>`
+                                }).join('')}
+                            </div>
+                            <div class="card-footer text-end">
+                                <button class="btn btn-warning btn-action edit-btn" data-casedata='${JSON.stringify(row)}'><i class="bi bi-pencil-fill"></i> Edit</button>
+                                <button class="btn btn-danger btn-action delete-btn" data-caseid="${caseId}"><i class="bi bi-trash-fill"></i> Delete</button>
+                            </div>
+                        </div>`;
+                });
+                cardsHTML += '</div>';
+                contentContainer.innerHTML = cardsHTML;
+            }
+        }
+
+
+        async function displayDataInterface(containerId, spreadsheetId, allowedTabs, userRole) {
+            currentSpreadsheetId = spreadsheetId;
+            const container = document.getElementById(containerId);
+            const searchBarId = `${containerId}-search-bar`;
+
+            let headerControls = `
+                <div class="d-flex justify-content-between align-items-center my-3">
+                    <div class="input-group" style="max-width: 400px;">
+                        <span class="input-group-text bg-light border-0"><i class="bi bi-search"></i></span>
+                        <input type="text" id="${searchBarId}" class="form-control bg-light border-0" placeholder="Search cases...">
+                    </div>
+                    <div class="view-toggle btn-group">
+                        <button id="table-view-btn" class="btn btn-outline-secondary"><i class="bi bi-table"></i></button>
+                        <button id="card-view-btn" class="btn btn-outline-secondary"><i class="bi bi-grid-3x3-gap-fill"></i></button>
+                    </div>
+                </div>`;
+            
+            container.innerHTML = `<div class="main-container"><ul class="nav nav-tabs" id="${containerId}-tabs"></ul>${headerControls}<div class="tab-content" id="${containerId}-content"></div></div>`;
+            const tabsContainer = document.getElementById(`${containerId}-tabs`);
+            const tabContentContainer = document.getElementById(`${containerId}-content`);
+
+            document.getElementById('table-view-btn').addEventListener('click', () => {
+                localStorage.setItem('dataView', 'table');
+                renderDataView();
+            });
+            document.getElementById('card-view-btn').addEventListener('click', () => {
+                localStorage.setItem('dataView', 'card');
+                renderDataView();
+            });
+
+            document.getElementById(searchBarId).addEventListener('input', () => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    const activeTab = document.querySelector(`#${containerId}-tabs .nav-link.active`);
+                    if (activeTab) activeTab.click();
+                }, 300);
+            });
+
+            allowedTabs.forEach((tabName, index) => {
+                const li = document.createElement('li');
+                li.className = 'nav-item';
+                li.innerHTML = `<a class="nav-link ${index === 0 ? 'active' : ''}" href="#">${tabName}</a>`;
+                tabsContainer.appendChild(li);
+                li.querySelector('a').addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    currentTabName = tabName;
+                    tabsContainer.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+                    e.target.classList.add('active');
+                    tabContentContainer.innerHTML = '<p class="p-3 text-center">Loading data...</p>';
+                    const searchQuery = document.getElementById(searchBarId)?.value || '';
+                    const response = await fetch('http://127.0.0.1:5000/get-sheet-data', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ spreadsheet_id: currentSpreadsheetId, tab_name: tabName, search_query: searchQuery })
+                    });
+                    const result = await response.json();
+                    currentSchema = result.schema || [];
+                    currentHeaders = result.headers || [];
+                    currentData = result.success ? (result.data || []) : [];
+
+                    let topButtonsHTML = `<div class="d-flex justify-content-end my-3 gap-2">
+                                            <button class="btn btn-primary btn-sm" id="validate-sheet-btn"><i class="bi bi-check-circle-fill me-2"></i>Validate & Format Sheet</button>
+                                            <button class="btn btn-info btn-sm" id="bulk-add-btn"><i class="bi bi-upload me-2"></i>Bulk Add Cases</button>
+                                            <button class="btn btn-success btn-sm" id="add-case-btn"><i class="bi bi-plus-circle-fill me-2"></i>Add New Case</button>
+                                          </div>`;
+                    
+                    let dataDisplayHTML = `<div id="data-view-wrapper"></div>`;
+
+                    tabContentContainer.innerHTML = topButtonsHTML + dataDisplayHTML;
+
+                    renderDataView();
+
+                    document.getElementById('add-case-btn').onclick = () => showModal(false);
+                    document.getElementById('bulk-add-btn').onclick = () => {
+                        document.getElementById('bulk-modal-headers').textContent = currentHeaders.join(', ');
+                        const validationPref = localStorage.getItem('dataValidation') !== 'false';
+                        updateValidationToggles(validationPref);
+                        bulkCaseModal.show();
+                    };
+                    document.getElementById('validate-sheet-btn').addEventListener('click', async (event) => {
+                        const btn = event.target;
+                        btn.disabled = true;
+                        btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...`;
+
+                        try {
+                            const res = await fetch('http://127.0.0.1:5000/validate-and-format-sheet', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({ spreadsheet_id: currentSpreadsheetId, tab_name: currentTabName })
+                            });
+                            const result = await res.json();
+                            showToast(result.message, result.success ? 'success' : 'danger');
+                            if(result.success){
+                                document.querySelector('.nav-link.active').click(); // Refresh data view
+                            }
+                        } catch (err) {
+                            showToast('An error occurred while communicating with the server.', 'danger');
+                        } finally {
+                            btn.disabled = false;
+                            btn.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>Validate & Format Sheet`;
+                        }
+                    });
+                });
+            });
+            if (tabsContainer.querySelector('.nav-link')) tabsContainer.querySelector('.nav-link').click();
+        }
+        
+        window.addEventListener('DOMContentLoaded', async () => {
+            const userData = JSON.parse(sessionStorage.getItem('userData'));
+            if (!userData) { window.location.href = './login.html'; return; }
+            document.getElementById('welcome-message').textContent = `Welcome, ${userData.username} (${userData.role})`;
+            const container = document.getElementById('view-container');
+
+            const response = await fetch('http://127.0.0.1:5000/get-data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: userData }) });
+            const data = await response.json();
+            if (data.success) {
+                if (userData.role === 'admin') {
+                    container.innerHTML = `<div class="main-container admin-card"><div class="text-center mb-4"><h3>Admin Panel</h3></div>
+                        <ul class="nav nav-tabs" id="admin-tabs" role="tablist">
+                            <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#locations-panel">Location Management</button></li>
+                            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#users-panel">User Management</button></li>
+                            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#sheets-panel">Sheet Management</button></li>
+                        </ul>
+                        <div class="tab-content pt-4"><div class="tab-pane fade show active" id="locations-panel"></div><div class="tab-pane fade" id="users-panel"></div><div class="tab-pane fade" id="sheets-panel"></div></div></div>`;
+                    
+                    let locationListHTML = data.locations.map(loc => `<tr><td>${loc.LocationName}</td><td>${loc.Spreadsheet_ID}</td></tr>`).join('');
+                    document.getElementById('locations-panel').innerHTML = `<div class="report-header"><h5>Existing Locations</h5><div class="btn-group"><button class="btn btn-secondary btn-sm" onclick="downloadReport('pdf', '#locations-table', 'Existing_Locations')"><i class="bi bi-file-earmark-pdf"></i> PDF</button><button class="btn btn-secondary btn-sm" onclick="downloadReport('excel', '#locations-table', 'Existing_Locations')"><i class="bi bi-file-earmark-excel"></i> Excel</button></div></div><div class="table-responsive"><table class="table table-sm" id="locations-table"><thead><tr><th>Location Name</th><th>Spreadsheet ID</th></tr></thead><tbody>${locationListHTML}</tbody></table></div><hr><h5>Register Location</h5><form id="add-location-form"><div class="mb-3"><label class="form-label">Location Name</label><input type="text" id="location_name" class="form-control" required></div><div class="mb-3"><label class="form-label">Spreadsheet URL or ID</label><input type="text" id="spreadsheet_id" class="form-control" required></div><button type="submit" class="btn btn-primary w-100">Register</button></form>`;
+                    document.getElementById('add-location-form').addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const locationName = document.getElementById('location_name').value;
+                        let spreadsheetIdInput = document.getElementById('spreadsheet_id').value.trim();
+                        const match = spreadsheetIdInput.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+                        if (match) { spreadsheetIdInput = match[1]; }
+                        const addResponse = await fetch('http://127.0.0.1:5000/add-location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location_name: locationName, spreadsheet_id: spreadsheetIdInput }) });
+                        const result = await addResponse.json();
+                        showToast(result.message, result.success ? 'success' : 'danger');
+                        if (result.success) setTimeout(() => window.location.reload(), 2000);
+                    });
+                    
+                    const userResponse = await fetch('http://127.0.0.1:5000/admin/get-all-users');
+                    const userDataForAdmin = await userResponse.json();
+                    if (userDataForAdmin.success) {
+                        let userTableHTML = userDataForAdmin.users.map(u => `<tr><td>${u.Username}</td><td>${u.Role}</td><td>${u.AccessScope}</td><td>${u.Gender}</td><td>${u.Station}</td></tr>`).join('');
+                        document.getElementById('users-panel').innerHTML = `<div class="report-header"><h5>All Users</h5><div class="btn-group"><button class="btn btn-secondary btn-sm" onclick="downloadReport('pdf', '#users-table', 'All_Users')"><i class="bi bi-file-earmark-pdf"></i> PDF</button><button class="btn btn-secondary btn-sm" onclick="downloadReport('excel', '#users-table', 'All_Users')"><i class="bi bi-file-earmark-excel"></i> Excel</button></div></div><div class="table-responsive user-table-container"><table class="table table-sm table-striped" id="users-table"><thead><tr><th>Username</th><th>Role</th><th>Access</th><th>Gender</th><th>Station</th></tr></thead><tbody>${userTableHTML}</tbody></table></div><hr class="my-4"><div class="row g-4"><div class="col-md-6"><h5>Add User</h5>
+                            <form id="add-user-form"><div class="mb-2"><label class="form-label">Username</label><input type="text" name="username" class="form-control" required></div>
+                            <div class="mb-2"><label class="form-label">Password</label><input type="password" name="password" class="form-control" required></div>
+                            <div class="mb-2"><label class="form-label">Role</label><select name="role" class="form-select" required><option value="normal">Normal</option><option value="sdo">SDO</option><option value="admin">Admin</option></select></div>
+                            <div class="mb-2"><label class="form-label">Access Scope</label><input type="text" name="accessScope" class="form-control" placeholder="e.g. thoothukudi_town or all" required></div>
+                            <div class="mb-2"><label class="form-label">Gender</label><select name="gender" class="form-select" required><option value="Male">Male</option><option value="Female">Female</option></select></div>
+                            <div class="mb-2"><label class="form-label">Station</label><input type="text" name="station" class="form-control" required></div>
+                            <button type="submit" class="btn btn-success w-100 mt-2">Create User</button></form></div>
+                            <div class="col-md-6"><h5>Reset Password</h5><form id="change-password-form"><div class="mb-3"><label class="form-label">Username of User to Change</label><input type="text" id="change_username" class="form-control" required></div>
+                            <div class="mb-3"><label class="form-label">New Password</label><input type="password" id="new_password" class="form-control" required></div>
+                            <button type="submit" class="btn btn-warning w-100">Update Password</button></form></div></div>`;
+                        
+                        document.getElementById('add-user-form').addEventListener('submit', async (e) => {
+                            e.preventDefault();
+                            const response = await fetch('http://127.0.0.1:5000/admin/add-user', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(e.target).entries())) });
+                            const result = await response.json();
+                            showToast(result.message, result.success ? 'success' : 'danger');
+                            if (result.success) setTimeout(() => window.location.reload(), 1500);
+                        });
+                        document.getElementById('change-password-form').addEventListener('submit', async (e) => {
+                            e.preventDefault();
+                            const response = await fetch('http://127.0.0.1:5000/admin/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: document.getElementById('change_username').value, new_password: document.getElementById('new_password').value }) });
+                            const result = await response.json();
+                            showToast(result.message, result.success ? 'success' : 'danger');
+                            if (result.success) e.target.reset();
+                        });
+                    }
+
+                    const locSelect = `<select id="admin-location-select" class="form-select" required><option value="">-- Select a Location --</option>${data.locations.map(loc => `<option value="${loc.Spreadsheet_ID}">${loc.LocationName}</option>`).join('')}</select>`;
+                    document.getElementById('sheets-panel').innerHTML = `<div class="card"><div class="card-body">
+                        <div class="row g-4"><div class="col-lg-5">
+                            <div class="report-header">
+                                <h5 class="card-title mb-0">Manage Sheets</h5>
+                                <div class="btn-group">
+                                <button class="btn btn-secondary btn-sm" id="pdf-sheets-btn"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+                                <button class="btn btn-secondary btn-sm" id="excel-sheets-btn"><i class="bi bi-file-earmark-excel"></i> Excel</button>
+                                </div>
+                            </div>
+                            <div class="mb-3"><label class="form-label">Select Location:</label>${locSelect}</div>
+                            <div id="existing-sheets-container"><h6>Existing Sheets:</h6><div id="existing-sheets-list" class="list-group sheet-list-container"></div></div>
+                        </div><div class="col-lg-7"><div id="add-sheet-container" style="display: none;"><h5 class="card-title">Create New Sheet</h5>
+                            <form id="add-sheet-form"><div class="mb-3"><label class="form-label">New Sheet Name:</label><input type="text" id="admin-new-sheet-name" class="form-control" required></div>
+                            <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch" id="female-only-switch"><label class="form-check-label" for="female-only-switch">Female Only Access</label></div><hr>
+                            <h6>Define Columns & Validation</h6><div id="schema-fields-container"></div>
+                            <button type="button" id="add-field-btn" class="btn btn-outline-secondary btn-sm mt-2"><i class="bi bi-plus-circle"></i> Add Field</button>
+                            <button type="submit" class="btn btn-success w-100 mt-4">Create Sheet</button></form>
+                        </div></div></div></div>`;
+                    
+                    const adminLocationDropdown = document.getElementById('admin-location-select');
+                    const loadSheetsForAdmin = async (spreadsheetId) => {
+                        const sheetList = document.getElementById('existing-sheets-list');
+                        if (!spreadsheetId) { sheetList.innerHTML = ''; document.getElementById('add-sheet-container').style.display = 'none'; return; }
+                        sheetList.innerHTML = '<div class="list-group-item">Loading...</div>';
+                        document.getElementById('add-sheet-container').style.display = 'block';
+                        const response = await fetch('http://127.0.0.1:5000/admin/get-sheets-for-location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spreadsheet_id: spreadsheetId }) });
+                        const result = await response.json();
+                        if (result.success) {
+                            sheetList.innerHTML = result.sheet_names.map(name => `<div class="list-group-item d-flex justify-content-between align-items-center">${name}<button class="btn btn-danger btn-sm delete-sheet-btn" data-sheetname="${name}"><i class="bi bi-trash"></i></button></div>`).join('');
+                        } else { sheetList.innerHTML = `<div class="list-group-item list-group-item-danger">${result.message}</div>`; }
+                    };
+                    
+                    adminLocationDropdown.addEventListener('change', (e) => loadSheetsForAdmin(e.target.value));
+
+                    function createAndDownloadSheetReport(format) {
+                        const selectedOption = adminLocationDropdown.options[adminLocationDropdown.selectedIndex];
+                        if (!selectedOption || !selectedOption.value) {
+                            showToast('Please select a location first.', 'warning');
+                            return;
+                        }
+                        const fileName = `Sheets_for_${selectedOption.text.replace(/ /g, '_')}`;
+                        const sheetList = document.getElementById('existing-sheets-list');
+                        const tempTable = document.createElement('table');
+                        
+                        const rows = Array.from(sheetList.children).map(item => {
+                            const sheetName = item.childNodes[0].textContent.trim();
+                            return `<tr><td>${sheetName}</td></tr>`;
+                        }).join('');
+
+                        if (!rows) {
+                           showToast('There are no sheets to export.', 'info');
+                           return;
+                        }
+
+                        tempTable.innerHTML = `<thead><tr><th>Sheet Name</th></tr></thead><tbody>${rows}</tbody>`;
+                        document.body.appendChild(tempTable);
+                        downloadReport(format, tempTable, fileName);
+                        document.body.removeChild(tempTable);
+                    }
+                     document.getElementById('pdf-sheets-btn').addEventListener('click', () => createAndDownloadSheetReport('pdf'));
+                     document.getElementById('excel-sheets-btn').addEventListener('click', () => createAndDownloadSheetReport('excel'));
+
+
+                    document.getElementById('existing-sheets-list').addEventListener('click', async (e) => {
+                        const button = e.target.closest('.delete-sheet-btn');
+                        if (button) {
+                            const sheetName = button.dataset.sheetname;
+                            if (confirm(`Are you sure you want to permanently delete the sheet "${sheetName}"?`)) {
+                                const response = await fetch('http://127.0.0.1:5000/admin/delete-sheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spreadsheet_id: adminLocationDropdown.value, sheet_name: sheetName }) });
+                                const result = await response.json();
+                                showToast(result.message, result.success ? 'success' : 'danger');
+                                if (result.success) loadSheetsForAdmin(adminLocationDropdown.value);
+                            }
+                        }
+                    });
+                    
+                    const fieldsContainer = document.getElementById('schema-fields-container');
+                    const addSchemaField = (isDefault = false) => {
+                        const fieldRow = document.createElement('div');
+                        fieldRow.className = 'row g-3 align-items-center mb-3 field-row';
+                        fieldRow.innerHTML = `
+                            <div class="col-sm-6 col-md-3"><input type="text" class="form-control form-control-sm field-name" value="${isDefault ? 'CaseID' : ''}" placeholder="Column Name" ${isDefault ? 'readonly' : ''} required></div>
+                            <div class="col-sm-6 col-md-2"><select class="form-select form-select-sm field-type" ${isDefault ? 'disabled' : ''}><option value="text">Text</option><option value="number">Number</option><option value="date">Date</option></select></div>
+                            <div class="col-md-7">
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control validation-length-input" placeholder="Length">
+                                    <div class="input-group-text field-format-container"><input class="form-control form-control-sm field-format" placeholder="Format e.g. __/__"></div>
+                                    <div class="form-check form-switch ps-5 pt-1"><input class="form-check-input validation-fixed-checkbox"><label class="form-check-label small">Fixed</label></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <select class="form-select form-select-sm field-autocorrect">
+                                    <option value="">No Auto-Correction</option>
+                                    <option value="strip">Strip Whitespace</option>
+                                    <option value="numeric">Convert to Numeric</option>
+                                    <option value="date">Format as Date</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 d-flex align-items-center">
+                                <div class="form-check form-switch"><input class="form-check-input field-required" type="checkbox"><label class="form-check-label small">Required</label></div>
+                            </div>
+                            ${!isDefault ? '<div class="col-12"><button type="button" class="btn btn-sm btn-outline-danger w-100 remove-field-btn">Remove</button></div>' : ''}`;
+                        fieldsContainer.appendChild(fieldRow);
+                    };
+                    addSchemaField(true);
+                    document.getElementById('add-field-btn').onclick = () => addSchemaField(false);
+                    fieldsContainer.addEventListener('change', e => {
+                        if (e.target.classList.contains('field-type')) {
+                            const row = e.target.closest('.field-row');
+                            const lengthInput = row.querySelector('.validation-length-input');
+                            const fixedSwitch = row.querySelector('.validation-fixed-checkbox').parentElement;
+                            const formatInput = row.querySelector('.field-format-container');
+                            const autocorrect = row.querySelector('.field-autocorrect');
+                            const isTextOrNumber = e.target.value === 'text' || e.target.value === 'number';
+                            lengthInput.style.display = isTextOrNumber ? 'block' : 'none';
+                            formatInput.style.display = isTextOrNumber ? 'flex' : 'none';
+                            fixedSwitch.style.display = e.target.value === 'number' ? 'block' : 'none';
+                            autocorrect.style.display = 'block'; // Always show
+                        }
+                    });
+                    fieldsContainer.addEventListener('click', e => { if (e.target.closest('.remove-field-btn')) e.target.closest('.field-row').remove(); });
+                    document.getElementById('add-sheet-form').addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const schema = Array.from(document.querySelectorAll('.field-row')).map(row => ({
+                            name: row.querySelector('.field-name').value, 
+                            type: row.querySelector('.field-type').value,
+                            length: row.querySelector('.validation-length-input').value || null,
+                            isFixed: row.querySelector('.validation-fixed-checkbox').checked,
+                            format: row.querySelector('.field-format').value || null,
+                            required: row.querySelector('.field-required').checked,
+                            autocorrect: row.querySelector('.field-autocorrect').value || null
+                        }));
+                        const response = await fetch('http://127.0.0.1:5000/add-sheet', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                spreadsheet_id: adminLocationDropdown.value, 
+                                sheet_name: document.getElementById('admin-new-sheet-name').value, 
+                                schema: schema,
+                                isFemaleOnly: document.getElementById('female-only-switch').checked
+                            })
+                        });
+                        const result = await response.json();
+                        showToast(result.message, result.success ? 'success' : 'danger');
+                        if (result.success) setTimeout(() => loadSheetsForAdmin(adminLocationDropdown.value), 1500);
+                    });
+                } else if (userData.role === 'sdo') {
+                    container.innerHTML = `<div class="main-container"><h5 class="mb-3">Inspector View</h5><p>Select a location to inspect its case files.</p>
+                                            <select class="form-select" id="location-dropdown"><option value="">-- Select Location --</option></select></div>
+                                            <div id="sdo-data-view" class="mt-4"></div>`;
+                    data.locations.forEach(loc => { document.getElementById('location-dropdown').innerHTML += `<option value="${loc.Spreadsheet_ID}">${loc.LocationName}</option>`; });
+                    document.getElementById('location-dropdown').addEventListener('change', async (event) => {
+                        const selectedId = event.target.value;
+                        if (!selectedId) { document.getElementById('sdo-data-view').innerHTML = ''; return; }
+                        const tabResponse = await fetch('http://127.0.0.1:5000/get-data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: userData, spreadsheet_id: selectedId }) });
+                        const tabData = await tabResponse.json();
+                        if (tabData.success) { displayDataInterface('sdo-data-view', selectedId, tabData.allowed_tabs, 'sdo'); }
+                    });
+                } else {
+                    displayDataInterface('view-container', data.spreadsheet_id, data.allowed_tabs, 'normal');
+                }
+            } else { showToast('Error: ' + data.message, 'danger'); }
+        });
+        
+        document.getElementById('case-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const caseData = Object.fromEntries(new FormData(event.target).entries());
+            const isEditing = !!currentlyEditingCaseId;
+            const url = isEditing ? 'http://127.0.0.1:5000/edit-case' : 'http://127.0.0.1:5000/add-case';
+            
+            const validationPref = localStorage.getItem('dataValidation') !== 'false';
+            const body = { 
+                spreadsheet_id: currentSpreadsheetId, 
+                tab_name: currentTabName, 
+                should_validate: validationPref,
+                ...(isEditing ? { case_id: currentlyEditingCaseId, new_data: caseData } : { case_data: caseData }) 
+            };
+            
+            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const result = await response.json();
+            showToast(result.message, result.success ? 'success' : 'danger');
+            if (result.success) { caseModal.hide(); document.querySelector('.nav-link.active').click(); }
+        });
+
+        document.getElementById('download-template-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const csvContent = "data:text/csv;charset=utf-8," + currentHeaders.map(h => `"${h}"`).join(',');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `${currentTabName}_template.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        document.getElementById('bulk-case-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const fileInput = document.getElementById('bulk-file-input');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showToast("Please select a file to upload.", 'warning');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const data = e.target.result;
+                    let workbook;
+                    if (file.name.toLowerCase().endsWith('.csv')) {
+                         workbook = XLSX.read(data, {type: 'string'});
+                    } else {
+                         workbook = XLSX.read(data, {type: 'array'});
+                    }
+
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                    
+                    if (rows.length < 2) {
+                        showToast("The uploaded file is empty or contains no data.", 'warning');
+                        return;
+                    }
+
+                    let fileHeaders = rows[0].map(h => String(h).trim());
+                    if (fileHeaders.length > 0) {
+                        fileHeaders[0] = fileHeaders[0].replace(/^\uFEFF/, '');
+                    }
+                    
+                    const expectedHeaders = currentHeaders.map(h => String(h).trim());
+
+                    const headersMatch = expectedHeaders.length === fileHeaders.length && expectedHeaders.every((h, i) => h.toLowerCase() === fileHeaders[i].toLowerCase());
+
+                    if (!headersMatch) {
+                        const errorMsg = `Header mismatch. Expected: [${expectedHeaders.join(', ')}]. Found: [${fileHeaders.join(', ')}]. Please use the template.`;
+                        showToast(errorMsg, 'danger');
+                        console.error("Header Mismatch. Expected:", expectedHeaders, "Got:", fileHeaders);
+                        return;
+                    }
+
+                    const casesData = XLSX.utils.sheet_to_json(worksheet, {raw: false, dateNF:'YYYY-MM-DD'});
+
+                    const remappedCasesData = casesData.map(row => {
+                        const newRow = {};
+                        currentHeaders.forEach(originalHeader => {
+                            const fileKey = Object.keys(row).find(fh => fh.trim().toLowerCase() === originalHeader.trim().toLowerCase());
+                            if(fileKey) {
+                                newRow[originalHeader] = row[fileKey];
+                            }
+                        });
+                        return newRow;
+                    });
+
+                    const validationPref = localStorage.getItem('dataValidation') !== 'false';
+                    const body = {
+                        spreadsheet_id: currentSpreadsheetId,
+                        tab_name: currentTabName,
+                        should_validate: validationPref,
+                        cases_data: remappedCasesData
+                    };
+
+                    const response = await fetch('http://127.0.0.1:5000/bulk-add-cases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                    const result = await response.json();
+                    showToast(result.message, result.success ? 'success' : 'danger');
+                    if (result.success) {
+                        bulkCaseModal.hide();
+                        fileInput.value = '';
+                        document.querySelector('.nav-link.active').click();
+                    }
+                } catch (error) {
+                    showToast('Failed to read or process the file. Please ensure it is a valid CSV or Excel file.', 'danger');
+                    console.error("File processing error:", error);
+                }
+            };
+            
+            if (file.name.toLowerCase().endsWith('.csv')) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
+        });
+        
+        document.addEventListener('click', async (event) => {
+            const editBtn = event.target.closest('.edit-btn');
+            if (editBtn) {
+                const caseData = JSON.parse(editBtn.dataset.casedata);
+                showModal(true, caseData); 
+                return; 
+            }
+
+            const deleteBtn = event.target.closest('.delete-btn');
+            if (deleteBtn) {
+                const caseIdKey = currentHeaders.find(h => h.toLowerCase() === 'caseid');
+                const caseId = deleteBtn.dataset.caseid;
+                const row = document.getElementById(`row-${caseId}`);
+                row.classList.add('pending-deletion');
+                undoToast.show();
+
+                const undoBtn = document.getElementById('undo-btn');
+                
+                const undoHandler = () => {
+                    clearTimeout(deleteTimeout);
+                    row.classList.remove('pending-deletion');
+                    undoToast.hide();
+                    undoBtn.removeEventListener('click', undoHandler);
+                };
+                
+                undoBtn.addEventListener('click', undoHandler);
+
+                deleteTimeout = setTimeout(async () => {
+                    undoBtn.removeEventListener('click', undoHandler);
+                    const response = await fetch('http://127.0.0.1:5000/delete-case', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ spreadsheet_id: currentSpreadsheetId, tab_name: currentTabName, case_id: caseId })
+                    });
+                    const result = await response.json();
+                    undoToast.hide();
+                    showToast(result.message, result.success ? 'success' : 'danger');
+                    if (result.success) {
+                        const dataRow = document.getElementById(`row-${caseId}`);
+                        if(dataRow) dataRow.remove();
+                    } else {
+                        const dataRow = document.getElementById(`row-${caseId}`);
+                        if(dataRow) dataRow.classList.remove('pending-deletion');
+                    }
+                }, 5000);
+            }
+        });
+
+        document.getElementById('logout-button').addEventListener('click', () => {
+            sessionStorage.removeItem('userData');
+            window.location.href = './login.html';
+        });
+    </script>
+</body>
+</html>
+
