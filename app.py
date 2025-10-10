@@ -18,7 +18,7 @@ CORS(app)
 scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
          "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
 try:
-    creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+    creds = ServiceAccountCredentials.from_json_keyfile_name(r"C:\Users\PRAKASH\Documents\Cyber\venv\credentials.json", scope)
     client = gspread.authorize(creds)
     config_sheet = client.open("App_Configuration")
     users_worksheet = config_sheet.worksheet("Users")
@@ -49,18 +49,23 @@ def apply_autocorrect(data_dict, schema):
         if not rule or value is None:
             continue
         
-        # Always strip whitespace from strings
         value_str = str(value).strip()
+        
+        # Apply uppercase autocorrect for specific types
+        if rule.get('type') in ['pan', 'vehicle_number']:
+            value_str = value_str.upper()
+        elif rule.get('type') == 'time_12hr':
+             value_str = value_str.upper()
+
         corrected_data[field_name] = value_str
 
-        # If it's a date field and has a value, try to format it
         if rule.get('type') == 'date' and value_str:
             try:
                 corrected_date = pd.to_datetime(value_str, errors='coerce')
                 if pd.notna(corrected_date):
                     corrected_data[field_name] = corrected_date.strftime('%Y-%m-%d')
             except Exception:
-                pass # Let validation handle failures if it's unparseable
+                pass 
                 
     return corrected_data
 
@@ -70,20 +75,69 @@ def validate_case_data(case_data, schema):
         value = case_data.get(field_name)
         value_str = str(value or '').strip()
 
-        if field.get('required') and not value_str:
+        is_required = field.get('required')
+        if (is_required is True or str(is_required).lower() == 'true') and not value_str:
             return f"'{field_name}' is a required field and cannot be empty."
 
         if not value_str: continue
 
         field_type = field.get('type')
         length = field.get('length')
-        is_fixed = field.get('isFixed', False)
         fmt = field.get('format')
+        is_fixed_raw = field.get('isFixed', False)
+        is_fixed = is_fixed_raw is True or str(is_fixed_raw).lower() == 'true'
 
         if field_type == 'date':
             if not is_valid_date(value_str):
                 return f"Invalid date format for '{field_name}'. Use YYYY-MM-DD."
-        
+        elif field_type == 'year':
+            if not (value_str.isdigit() and len(value_str) == 4):
+                return f"'{field_name}' must be a 4-digit Year."
+        elif field_type == 'pincode':
+            if not (value_str.isdigit() and len(value_str) == 6):
+                return f"'{field_name}' must be a 6-digit Pincode."
+        elif field_type == 'phone_number':
+            if not (value_str.isdigit() and len(value_str) == 10):
+                return f"'{field_name}' must be a 10-digit Phone Number."
+        elif field_type == 'aadhar':
+            if not (value_str.isdigit() and len(value_str) == 12):
+                return f"'{field_name}' must be a 12-digit Aadhar Number."
+        elif field_type == 'police_number':
+            if not (value_str.isdigit() and 3 <= len(value_str) <= 4):
+                return f"'{field_name}' must be a 3 or 4-digit Police Number."
+        elif field_type == 'pan':
+            if not re.match(r'^[A-Z]{5}[0-9]{4}[A-Z]$', value_str.upper()):
+                return f"'{field_name}' is not a valid PAN format."
+        elif field_type == 'vehicle_number':
+            if not re.match(r'^[A-Z]{2}[0-9]{1,2}[A-Z]{1,2}[0-9]{4}$', value_str.upper()):
+                return f"'{field_name}' is not a valid Vehicle Number format (e.g., TN01AB1234)."
+        elif field_type == 'time_24hr':
+            if not re.match(r'^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$', value_str):
+                return f"'{field_name}' is not a valid 24-hour time format (HH:MM)."
+        elif field_type == 'time_12hr':
+            if not re.match(r'^(0?[1-9]|1[0-2]):([0-5]\d)(?::([0-5]\d))?\s?[AP]M$', value_str.upper()):
+                return f"'{field_name}' is not a valid 12-hour time format (e.g., 01:30 PM)."
+        elif field_type == 'latitude_tn':
+            try:
+                lat = float(value_str)
+                if not (8.0 <= lat < 14.0):
+                    return f"'{field_name}' must be a latitude value between 8.0 and 13.99..."
+                if len(value_str.split('.')[1]) < 5:
+                    return f"'{field_name}' must have at least 5 decimal places."
+            except (ValueError, IndexError):
+                return f"'{field_name}' is not a valid decimal latitude."
+        elif field_type == 'longitude_tn':
+            try:
+                lon = float(value_str)
+                if not (76.0 <= lon < 81.0):
+                    return f"'{field_name}' must be a longitude value between 76.0 and 80.99..."
+                if len(value_str.split('.')[1]) < 5:
+                    return f"'{field_name}' must have at least 5 decimal places."
+            except (ValueError, IndexError):
+                return f"'{field_name}' is not a valid decimal longitude."
+        elif field_type == 'decimal_latlon': # Generic decimal
+            if not re.match(r'^\d{1,3}\.\d+$', value_str):
+                return f"'{field_name}' must be a decimal value (e.g., 12.3456)."
         elif fmt:
             regex_parts = []
             for char in fmt:
@@ -94,10 +148,9 @@ def validate_case_data(case_data, schema):
             regex_pattern = '^' + ''.join(regex_parts) + '$'
             if not re.match(regex_pattern, value_str):
                 return f"'{field_name}' value '{value_str}' does not match format '{fmt}'."
-
         elif field_type == 'number':
-            # This check is basic; it won't handle floats correctly.
-            # For simplicity, we assume numbers are integers for length checks.
+            if not value_str.isdigit():
+                 return f"'{field_name}' must contain only digits."
             numeric_val = re.sub(r'[^\d]', '', value_str)
             if length:
                 try:
@@ -107,7 +160,6 @@ def validate_case_data(case_data, schema):
                     if not is_fixed and len(numeric_val) > length:
                         return f"'{field_name}' cannot be more than {length} digits long."
                 except (ValueError, TypeError): pass
-
         elif field_type == 'text':
             if length:
                 try:
@@ -285,6 +337,10 @@ def add_case():
         
         corrected_case_data = apply_autocorrect(case_data, schema)
 
+        if should_validate:
+            error_message = validate_case_data(corrected_case_data, schema)
+            if error_message: return jsonify({"success": False, "message": error_message}), 400
+        
         sheet = client.open_by_key(spreadsheet_id); worksheet = sheet.worksheet(tab_name)
         headers = worksheet.row_values(1)
         case_id_header = next((h for h in headers if h.lower() == 'caseid'), None)
@@ -299,10 +355,6 @@ def add_case():
         existing_case_ids = set(worksheet.col_values(headers.index(case_id_header) + 1)[1:])
         if new_case_id in existing_case_ids:
             return jsonify({"success": False, "message": f"'{case_id_header}' '{new_case_id}' already exists."}), 409
-
-        if should_validate:
-            error_message = validate_case_data(corrected_case_data, schema)
-            if error_message: return jsonify({"success": False, "message": error_message}), 400
         
         new_row = [corrected_case_data.get(header, "") for header in headers]
         worksheet.append_row(new_row)
@@ -445,6 +497,7 @@ def validate_and_format_sheet():
         for index, row in df_copy.iterrows():
             row_dict = row.to_dict()
             for field_name, value in row_dict.items():
+                if field_name not in headers: continue # Skip if field is not a column
                 rule = schema_map.get(field_name)
                 if not rule: continue
                 
@@ -464,16 +517,22 @@ def validate_and_format_sheet():
             for c_name, is_error in row.items():
                 if is_error:
                     sheet_row = df.index.get_loc(r_idx) + 2
-                    sheet_col = headers.index(c_name) + 1
-                    error_cells_a1.append(gspread.utils.rowcol_to_a1(sheet_row, sheet_col))
+                    try:
+                        sheet_col = headers.index(c_name) + 1
+                        error_cells_a1.append(gspread.utils.rowcol_to_a1(sheet_row, sheet_col))
+                    except ValueError:
+                        print(f"Warning: Column '{c_name}' from error check not found in sheet headers.")
+
         
         if error_cells_a1:
-            RED_FORMAT = { "backgroundColor": {"red": 1.0, "green": 0.8, "blue": 0.8}, }
+            # Darker, "thicker" red color
+            RED_FORMAT = { "backgroundColor": {"red": 0.9, "green": 0.2, "blue": 0.2}, }
             worksheet.format(error_cells_a1, RED_FORMAT)
         
         return jsonify({
             "success": True, 
-            "message": f"Sheet '{tab_name}' validated and formatted. {len(error_cells_a1)} errors found and highlighted."
+            "message": f"Sheet '{tab_name}' validated and formatted. {len(error_cells_a1)} errors found and highlighted.",
+            "error_cells": error_cells_a1
         })
 
     except gspread.exceptions.WorksheetNotFound:
@@ -553,4 +612,3 @@ def add_location():
 # --- 8. RUN THE FLASK APP ---
 if __name__ == '__main__':
     app.run(debug=True)
-

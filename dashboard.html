@@ -46,6 +46,11 @@
         .case-card .card-body p strong { color: #495057; }
         .case-card .card-footer { background-color: transparent; border-top: 1px solid #dee2e6; }
         .empty-cell { background-color: #f8f9fa; }
+        .cell-error {
+            background-color: #e63946 !important; /* Thicker Red */
+            color: #ffffff;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -57,7 +62,7 @@
         </div>
     </nav>
 
-    <main class="container my-4">
+    <main class="container-fluid my-4">
         <div id="view-container"></div>
     </main>
     
@@ -71,7 +76,7 @@
                 </div>
                 <button type="button" class="btn-close ms-2" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body"><form id="case-form" class="row g-3"></form></div>
+            <div class="modal-body"><form id="case-form" class="row g-3" novalidate></form></div>
         </div></div>
     </div>
 
@@ -144,9 +149,10 @@
             }
         }
 
-
         function toggleValidationAttributes(shouldValidate) {
             const form = document.getElementById('case-form');
+            form.noValidate = !shouldValidate;
+
             form.querySelectorAll('input, select').forEach(input => {
                 const header = input.name;
                 const fieldSchema = currentSchema.find(f => f.name === header) || {};
@@ -155,28 +161,66 @@
                 input.removeAttribute('pattern');
                 input.removeAttribute('maxlength');
                 input.removeAttribute('title');
+                input.style.textTransform = 'none';
 
                 if (shouldValidate) {
-                    if (fieldSchema.required) {
+                    if (fieldSchema.required === true || String(fieldSchema.required).toLowerCase() === 'true') {
                         input.setAttribute('required', 'true');
                     }
-                    if (fieldSchema.type === 'date') {
+                    
+                    const type = fieldSchema.type;
+                    if (type === 'date') {
                         input.setAttribute('pattern', `\\d{4}-\\d{2}-\\d{2}`);
                         input.setAttribute('title', `Please use YYYY-MM-DD format.`);
+                    } else if (type === 'year') {
+                        input.setAttribute('pattern', '\\d{4}');
+                        input.setAttribute('title', 'Must be a 4-digit year.');
+                    } else if (type === 'pincode') {
+                        input.setAttribute('pattern', '\\d{6}');
+                        input.setAttribute('title', 'Must be a 6-digit pincode.');
+                    } else if (type === 'aadhar') {
+                        input.setAttribute('pattern', '\\d{12}');
+                        input.setAttribute('title', 'Must be a 12-digit Aadhar number.');
+                    } else if (type === 'phone_number') {
+                        input.setAttribute('pattern', '\\d{10}');
+                        input.setAttribute('title', 'Must be a 10-digit phone number.');
+                    } else if (type === 'police_number') {
+                        input.setAttribute('pattern', '\\d{3,4}');
+                        input.setAttribute('title', 'Must be 3 to 4 digits.');
+                    } else if (type === 'pan') {
+                        input.setAttribute('pattern', '[A-Z]{5}[0-9]{4}[A-Z]{1}');
+                        input.setAttribute('title', 'Must be a valid PAN format (e.g., ABCDE1234F).');
+                        input.style.textTransform = 'uppercase';
+                    } else if (type === 'vehicle_number') {
+                        input.setAttribute('pattern', '[A-Z]{2}[0-9]{1,2}[A-Z]{1,2}[0-9]{4}');
+                        input.setAttribute('title', 'Must be a valid Vehicle Number format (e.g., TN01AB1234).');
+                        input.style.textTransform = 'uppercase';
+                    } else if (type === 'time_24hr') {
+                        input.setAttribute('pattern', '([01]\\d|2[0-3]):([0-5]\\d)(?::([0-5]\\d))?');
+                        input.setAttribute('title', 'Use HH:MM or HH:MM:SS format.');
+                    } else if (type === 'time_12hr') {
+                        input.setAttribute('pattern', '(0?[1-9]|1[0-2]):([0-5]\\d)(?::([0-5]\\d))?\\s?[AP]M');
+                        input.setAttribute('title', 'Use hh:mm AM/PM format.');
+                        input.style.textTransform = 'uppercase';
+                    } else if (type === 'latitude_tn') {
+                        input.setAttribute('pattern', '(8|9|1[0-3])\\.\\d{5,}');
+                        input.setAttribute('title', 'Must be a valid TN Latitude (8.0-13.99) with at least 5 decimal places.');
+                    } else if (type === 'longitude_tn') {
+                        input.setAttribute('pattern', '(7[6-9]|80)\\.\\d{5,}');
+                        input.setAttribute('title', 'Must be a valid TN Longitude (76.0-80.99) with at least 5 decimal places.');
+                    } else if (type === 'decimal_latlon') {
+                        input.setAttribute('pattern', '\\d{1,3}\\.\\d+');
+                        input.setAttribute('title', 'Must be a decimal value (e.g., 12.3456).');
                     } else if (fieldSchema.format) {
                         let pattern = '';
                         for (const char of fieldSchema.format) {
-                            if (char === '_') {
-                                pattern += fieldSchema.type === 'number' ? '\\d' : '.';
-                            } else {
-                                pattern += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                            }
+                            pattern += (char === '_') ? (type === 'number' ? '\\d' : '.') : char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                         }
                         input.setAttribute('pattern', `^${pattern}$`);
                         input.setAttribute('title', `Must match the format: ${fieldSchema.format}`);
-                    }
-                    else if (fieldSchema.type === 'number' && fieldSchema.length) {
-                        if (fieldSchema.isFixed) {
+                    } else if (type === 'number' && fieldSchema.length) {
+                        const isFixed = fieldSchema.isFixed === true || String(fieldSchema.isFixed).toLowerCase() === 'true';
+                        if (isFixed) {
                             input.setAttribute('pattern', `[0-9]{${fieldSchema.length}}`);
                             input.setAttribute('title', `Must be exactly ${fieldSchema.length} digits.`);
                         } else {
@@ -184,7 +228,7 @@
                             input.setAttribute('title', `Maximum ${fieldSchema.length} digits.`);
                             input.setAttribute('maxlength', fieldSchema.length);
                         }
-                    } else if (fieldSchema.type === 'text' && fieldSchema.length) {
+                    } else if (type === 'text' && fieldSchema.length) {
                          input.setAttribute('maxlength', fieldSchema.length);
                     }
                 }
@@ -218,7 +262,6 @@
             });
             toggleValidationAttributes(isOn);
         }
-
 
         function showToast(message, type = 'success') {
             const toastEl = document.getElementById('notification-toast');
@@ -284,13 +327,14 @@
 
             if (view === 'table') {
                 let tableHTML = `<div class="table-responsive"><table class="table table-hover" id="main-data-table"><thead><tr>${currentHeaders.map(h => `<th>${h}</th>`).join('')}<th>Actions</th></tr></thead><tbody>`;
-                currentData.forEach(row => {
+                currentData.forEach((row, rowIndex) => {
                     const caseIdKey = Object.keys(row).find(k => k.toLowerCase() === 'caseid');
                     const caseId = row[caseIdKey];
-                    tableHTML += `<tr id="row-${caseId}">${currentHeaders.map(h => {
+                    tableHTML += `<tr id="row-${caseId}">${currentHeaders.map((h, colIndex) => {
                         const val = row[h] || '';
                         const isEmpty = val.toString().trim() === '';
-                        return `<td class="${isEmpty ? 'empty-cell' : ''}">${val}</td>`;
+                        const cellA1 = `${String.fromCharCode(65 + colIndex)}${rowIndex + 2}`;
+                        return `<td class="${isEmpty ? 'empty-cell' : ''}" data-cell-id="${cellA1}">${val}</td>`;
                     }).join('')}
                                 <td class="action-btns"><button class="btn btn-warning btn-action edit-btn" data-casedata='${JSON.stringify(row)}'><i class="bi bi-pencil-fill"></i></button>
                                 <button class="btn btn-danger btn-action delete-btn" data-caseid="${caseId}"><i class="bi bi-trash-fill"></i></button></td></tr>`;
@@ -299,7 +343,7 @@
                 contentContainer.innerHTML = tableHTML;
             } else { // Card View
                 let cardsHTML = '<div class="card-view-grid">';
-                currentData.forEach(row => {
+                currentData.forEach((row, rowIndex) => {
                     const caseIdKey = Object.keys(row).find(k => k.toLowerCase() === 'caseid');
                     const caseId = row[caseIdKey];
                     cardsHTML += `
@@ -309,7 +353,9 @@
                                 ${currentHeaders.filter(h => h.toLowerCase() !== 'caseid').map(h => {
                                     const val = row[h] || '';
                                     const isEmpty = val.toString().trim() === '';
-                                    return `<p><strong>${h}:</strong> <span class="${isEmpty ? 'text-muted' : ''}">${isEmpty ? 'N/A' : val}</span></p>`
+                                    const originalColIndex = currentHeaders.indexOf(h);
+                                    const cellA1 = `${String.fromCharCode(65 + originalColIndex)}${rowIndex + 2}`;
+                                    return `<p><strong>${h}:</strong> <span class="${isEmpty ? 'text-muted' : ''}" data-cell-id="${cellA1}">${isEmpty ? 'N/A' : val}</span></p>`
                                 }).join('')}
                             </div>
                             <div class="card-footer text-end">
@@ -322,7 +368,6 @@
                 contentContainer.innerHTML = cardsHTML;
             }
         }
-
 
         async function displayDataInterface(containerId, spreadsheetId, allowedTabs, userRole) {
             currentSpreadsheetId = spreadsheetId;
@@ -407,6 +452,8 @@
                         btn.disabled = true;
                         btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...`;
 
+                        document.querySelectorAll('[data-cell-id]').forEach(cell => cell.classList.remove('cell-error'));
+
                         try {
                             const res = await fetch('http://127.0.0.1:5000/validate-and-format-sheet', {
                                 method: 'POST',
@@ -415,8 +462,21 @@
                             });
                             const result = await res.json();
                             showToast(result.message, result.success ? 'success' : 'danger');
-                            if(result.success){
-                                document.querySelector('.nav-link.active').click(); // Refresh data view
+                            
+                            if (result.success) {
+                                const activeTabLink = document.querySelector('.nav-link.active');
+                                if(activeTabLink) activeTabLink.click();
+                                
+                                if (result.error_cells && result.error_cells.length > 0) {
+                                    setTimeout(() => {
+                                        result.error_cells.forEach(cellA1 => {
+                                            const cellElement = document.querySelector(`[data-cell-id="${cellA1}"]`);
+                                            if (cellElement) {
+                                                cellElement.classList.add('cell-error');
+                                            }
+                                        });
+                                    }, 200);
+                                }
                             }
                         } catch (err) {
                             showToast('An error occurred while communicating with the server.', 'danger');
@@ -575,26 +635,35 @@
                     const addSchemaField = (isDefault = false) => {
                         const fieldRow = document.createElement('div');
                         fieldRow.className = 'row g-3 align-items-center mb-3 field-row';
+                        const typeOptions = `
+                            <option value="text">Text (General)</option>
+                            <option value="number">Number (General)</option>
+                            <option value="date">Date (YYYY-MM-DD)</option>
+                            <option value="year">Year (4-digit)</option>
+                            <option value="pincode">Pincode (6-digit)</option>
+                            <option value="phone_number">Phone Number (10-digit)</option>
+                            <option value="aadhar">Aadhar Number (12-digit)</option>
+                            <option value="police_number">Police Number (3-4 digit)</option>
+                            <option value="pan">PAN Number</option>
+                            <option value="vehicle_number">Vehicle Number</option>
+                            <option value="time_24hr">Time (24 Hr)</option>
+                            <option value="time_12hr">Time (12 Hr)</option>
+                            <option value="latitude_tn">Latitude (TN)</option>
+                            <option value="longitude_tn">Longitude (TN)</option>
+                        `;
+
                         fieldRow.innerHTML = `
                             <div class="col-sm-6 col-md-3"><input type="text" class="form-control form-control-sm field-name" value="${isDefault ? 'CaseID' : ''}" placeholder="Column Name" ${isDefault ? 'readonly' : ''} required></div>
-                            <div class="col-sm-6 col-md-2"><select class="form-select form-select-sm field-type" ${isDefault ? 'disabled' : ''}><option value="text">Text</option><option value="number">Number</option><option value="date">Date</option></select></div>
-                            <div class="col-md-7">
+                            <div class="col-sm-6 col-md-3"><select class="form-select form-select-sm field-type" ${isDefault ? 'disabled' : ''}>${typeOptions}</select></div>
+                            <div class="col-md-6">
                                 <div class="input-group input-group-sm">
                                     <input type="number" class="form-control validation-length-input" placeholder="Length">
                                     <div class="input-group-text field-format-container"><input class="form-control form-control-sm field-format" placeholder="Format e.g. __/__"></div>
                                     <div class="form-check form-switch ps-5 pt-1"><input class="form-check-input validation-fixed-checkbox"><label class="form-check-label small">Fixed</label></div>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <select class="form-select form-select-sm field-autocorrect">
-                                    <option value="">No Auto-Correction</option>
-                                    <option value="strip">Strip Whitespace</option>
-                                    <option value="numeric">Convert to Numeric</option>
-                                    <option value="date">Format as Date</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 d-flex align-items-center">
-                                <div class="form-check form-switch"><input class="form-check-input field-required" type="checkbox"><label class="form-check-label small">Required</label></div>
+                            <div class="col-md-12 d-flex align-items-center justify-content-end">
+                                <div class="form-check form-switch"><input class="form-check-input field-required" type="checkbox" ${isDefault ? 'checked' : ''}><label class="form-check-label small">Required</label></div>
                             </div>
                             ${!isDefault ? '<div class="col-12"><button type="button" class="btn btn-sm btn-outline-danger w-100 remove-field-btn">Remove</button></div>' : ''}`;
                         fieldsContainer.appendChild(fieldRow);
@@ -604,15 +673,18 @@
                     fieldsContainer.addEventListener('change', e => {
                         if (e.target.classList.contains('field-type')) {
                             const row = e.target.closest('.field-row');
+                            const customValidationGroup = row.querySelector('.input-group');
+                            const isGeneralType = e.target.value === 'text' || e.target.value === 'number';
+                            
+                            customValidationGroup.style.display = isGeneralType ? 'flex' : 'none';
+                            
                             const lengthInput = row.querySelector('.validation-length-input');
                             const fixedSwitch = row.querySelector('.validation-fixed-checkbox').parentElement;
                             const formatInput = row.querySelector('.field-format-container');
-                            const autocorrect = row.querySelector('.field-autocorrect');
-                            const isTextOrNumber = e.target.value === 'text' || e.target.value === 'number';
-                            lengthInput.style.display = isTextOrNumber ? 'block' : 'none';
-                            formatInput.style.display = isTextOrNumber ? 'flex' : 'none';
+                            
+                            lengthInput.style.display = 'block';
+                            formatInput.style.display = 'flex';
                             fixedSwitch.style.display = e.target.value === 'number' ? 'block' : 'none';
-                            autocorrect.style.display = 'block'; // Always show
                         }
                     });
                     fieldsContainer.addEventListener('click', e => { if (e.target.closest('.remove-field-btn')) e.target.closest('.field-row').remove(); });
@@ -624,8 +696,7 @@
                             length: row.querySelector('.validation-length-input').value || null,
                             isFixed: row.querySelector('.validation-fixed-checkbox').checked,
                             format: row.querySelector('.field-format').value || null,
-                            required: row.querySelector('.field-required').checked,
-                            autocorrect: row.querySelector('.field-autocorrect').value || null
+                            required: row.querySelector('.field-required').checked
                         }));
                         const response = await fetch('http://127.0.0.1:5000/add-sheet', {
                             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -660,11 +731,17 @@
         
         document.getElementById('case-form').addEventListener('submit', async function(event) {
             event.preventDefault();
+            const validationPref = localStorage.getItem('dataValidation') !== 'false';
+            
+            if (validationPref && !event.target.checkValidity()) {
+                event.target.reportValidity();
+                return;
+            }
+
             const caseData = Object.fromEntries(new FormData(event.target).entries());
             const isEditing = !!currentlyEditingCaseId;
             const url = isEditing ? 'http://127.0.0.1:5000/edit-case' : 'http://127.0.0.1:5000/add-case';
             
-            const validationPref = localStorage.getItem('dataValidation') !== 'false';
             const body = { 
                 spreadsheet_id: currentSpreadsheetId, 
                 tab_name: currentTabName, 
@@ -833,4 +910,3 @@
     </script>
 </body>
 </html>
-
