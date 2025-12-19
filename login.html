@@ -44,10 +44,11 @@
                     <input type="text" class="form-control" id="username" name="username" required>
                 </div>
                 <div class="mb-3">
-                    <label for="password" class="form-label">Password</label>
-                    <input type="password" class="form-control" id="password" name="password" required>
+                    <label for="password" class="form-label">Authentication Code</label>
+                    <input type="text" class="form-control" id="password" name="password" required placeholder="Enter 6-digit code" inputmode="numeric" pattern="\d{6}" autocomplete="one-time-code">
                 </div>
-                <button type="submit" class="btn btn-primary btn-register">Login</button>
+
+                <button type="submit" id="login-button" class="btn btn-primary btn-register">Login</button>
                 <p id="error-message" class="text-danger text-center mt-3"></p>
             </form>
         </div>
@@ -58,18 +59,23 @@
             event.preventDefault();
             const errorMessage = document.getElementById('error-message');
             errorMessage.textContent = '';
+
             try {
+                // The backend expects the 6-digit code in the 'password' field.
                 const response = await fetch('http://127.0.0.1:5000/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         role: document.getElementById('role').value,
                         username: document.getElementById('username').value,
-                        password: document.getElementById('password').value
+                        password: document.getElementById('password').value 
                     })
                 });
+                
                 const data = await response.json();
+
                 if (data.success) {
+                    // Login is successful, save user data and redirect to the dashboard.
                     sessionStorage.setItem('userData', JSON.stringify(data.user));
                     window.location.href = './dashboard.html';
                 } else {
@@ -82,4 +88,3 @@
     </script>
 </body>
 </html>
-

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,21 +12,35 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .navbar-brand { font-weight: bold; color: #2e7d32 !important; }
-        .navbar-brand i { margin-right: 8px; }
-        .main-container { background-color: #fff; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); padding: 1.5rem; }
+        :root {
+            --font-size-base: 1rem;
+            --font-size-md: clamp(1rem, 1.2vw, 1.15rem);
+            --font-size-lg: clamp(1.25rem, 2.5vw, 1.75rem);
+            --font-size-xl: clamp(1.75rem, 4vw, 2.25rem);
+            --spacing-unit: 1.5rem;
+            --container-max-width: 1800px;
+        }
+        html { font-size: 16px; }
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: var(--font-size-md); }
+        .navbar-brand { font-weight: bold; color: #2e7d32 !important; font-size: var(--font-size-lg); }
+        .main-container {
+            max-width: var(--container-max-width);
+            margin: var(--spacing-unit) auto;
+            background-color: #fff;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            padding: calc(var(--spacing-unit) * 1.5);
+        }
         .nav-tabs .nav-link { color: #495057; }
         .nav-tabs .nav-link.active { color: #2e7d32; font-weight: 600; border-color: #dee2e6 #dee2e6 #fff; }
         .table-hover tbody tr:hover { background-color: #f1f1f1; }
         .btn-action { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
-        #undo-toast, #notification-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1055; }
-        tr.pending-deletion { opacity: 0.4; background-color: #ffdddd; transition: all 0.3s ease; }
-        .location-list, .user-table-container, .sheet-list-container { max-height: 250px; overflow-y: auto; }
-        .admin-card { max-width: 900px; margin: auto; }
+        #undo-toast, #notification-toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); z-index: 1055; }
+        .location-list, .user-table-container, .sheet-list-container, .activity-log-container { max-height: 300px; overflow-y: auto; }
+        .admin-card { max-width: 1200px; margin: auto; }
         .modal-dialog { max-width: 800px; }
         .modal-body .form-label { font-weight: 500; color: #555; }
-        .modal-body .form-control, .modal-body .form-select { border-radius: 8px; padding: 10px 12px; }
+        .modal-body .form-control, .modal-body .form-select { border-radius: 8px; padding: 0.75rem 1rem; }
         .modal-body .form-control:focus, .modal-body .form-select:focus { border-color: #2e7d32; box-shadow: 0 0 0 0.2rem rgba(46,125,50,0.25); }
         .field-row { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
         .validation-length-input, .field-format-container { display: none; }
@@ -33,30 +48,63 @@
         .validation-toggle-btn { background-color: #ccc; border: none; color: white; padding: 5px 10px; font-size: 0.8rem; font-weight: bold; border-radius: 50px; cursor: pointer; transition: background-color 0.3s ease; width: 70px; text-align: center; }
         .validation-toggle-btn.on { background-color: #2e7d32; }
         .validation-toggle-btn.off { background-color: #dc3545; }
-        .report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-        
-        .view-toggle { text-align: right; margin-bottom: 1rem; }
         .view-toggle .btn { color: #6c757d; }
         .view-toggle .btn.active { color: #2e7d32; background-color: #e9f5ea; }
-        .card-view-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+        .action-buttons-group { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .action-buttons-group .btn { display: flex; align-items: center; justify-content: center; padding: 0.6rem 1.2rem; font-size: 0.9rem; flex-shrink: 0; }
+        .card-view-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
         .case-card { border: 1px solid #dee2e6; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: box-shadow 0.3s ease; }
         .case-card:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .case-card .card-header { background-color: #f8f9fa; font-weight: bold; }
-        .case-card .card-body p { margin-bottom: 0.5rem; font-size: 0.9rem; }
-        .case-card .card-body p strong { color: #495057; }
-        .case-card .card-footer { background-color: transparent; border-top: 1px solid #dee2e6; }
         .empty-cell { background-color: #f8f9fa; }
-        .cell-error {
-            background-color: #e63946 !important; /* Thicker Red */
-            color: #ffffff;
-            font-weight: bold;
+        .cell-error { background-color: #f8d7da !important; color: #58151c; }
+        .table-responsive-container { width: 100%; overflow-x: auto; }
+        .offcanvas-body .list-group-item { cursor: pointer; }
+        .offcanvas-body .list-group-item.active { background-color: #2e7d32; border-color: #2e7d32; }
+        .content-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+        .content-header h4 { margin: 0; white-space: nowrap; font-size: var(--font-size-xl); }
+        .accordion-button:not(.collapsed) { background-color: #e9f5ea; color: #2e7d32; }
+        .accordion-body { padding: 0; }
+        .accordion-body .list-group-item { border-radius: 0; border-left: 0; border-right: 0; }
+        #user-assignment-modal-list { max-height: 40vh; overflow-y: auto; }
+
+        /* --- Spreadsheet View Styles --- */
+        .spreadsheet-view-table { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 0.9em; user-select: none; }
+        .spreadsheet-view-table th, .spreadsheet-view-table td { border: 1px solid #ccc; padding: 6px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .spreadsheet-view-table thead th { background-color: #f0f0f0; font-weight: bold; text-align: center; position: sticky; top: 0; z-index: 2; }
+        .spreadsheet-view-table .row-header { background-color: #f0f0f0; font-weight: bold; text-align: center; position: sticky; left: 0; z-index: 1; min-width: 60px; }
+        .spreadsheet-view-table td { user-select: text; }
+        .spreadsheet-view-table td[contenteditable="true"] {
+             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="black"><path d="M8 0a1 1 0 0 1 1 1v6h6a1 1 0 1 1 0 2H9v6a1 1 0 1 1-2 0V9H1a1 1 0 0 1 0-2h6V1a1 1 0 0 1 1-1z"/></svg>') 8 8, crosshair;
+        }
+        .spreadsheet-view-table td:not([contenteditable="true"]) { user-select: none; }
+        .spreadsheet-view-table td:focus { background-color: #e9f5ea; outline: 2px solid #2e7d32; outline-offset: -2px; box-shadow: 0 0 10px rgba(46,125,50,0.3); }
+        .spreadsheet-view-table tr.new-row td { background-color: #f1f8e9; font-style: italic; }
+        .spreadsheet-view-table tr.unsaved-change td { background-color: #fffde7 !important; }
+        .spreadsheet-view-table td.cell-selected { background-color: rgba(46, 125, 50, 0.15) !important; box-shadow: inset 0 0 0 1px #2e7d32; }
+        .spreadsheet-view-table .row-header .delete-btn-spreadsheet { visibility: hidden; opacity: 0; transition: opacity 0.2s ease-in-out; }
+        .spreadsheet-view-table tr:hover .row-header .delete-btn-spreadsheet, .spreadsheet-view-table tr:focus-within .row-header .delete-btn-spreadsheet { visibility: visible; opacity: 1; }
+
+        #spreadsheet-options-panel { position: absolute; z-index: 1050; background-color: #fff; border: 1px solid #ccc; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 8px; padding: 0.5rem; max-height: 200px; overflow-y: auto; }
+        .options-panel-item { cursor: pointer; padding: 0.5rem 0.75rem; border-radius: 4px; text-align: left; border: 1px solid transparent; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .options-panel-item:hover { background-color: #e9f5ea; border-color: #2e7d32; }
+        
+        #save-changes-button {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1060;
+            display: none; /* Initially hidden */
+            padding: 0.75rem 1.5rem;
+            font-size: 1.1rem;
+            font-weight: 500;
+            align-items: center;
         }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#"><i class="bi bi-shield-check-fill"></i>Case Management</a>
+            <a class="navbar-brand" href="#"><i class="bi bi-shield-check"></i> Case Management</a>
             <span class="navbar-text me-3" id="welcome-message"></span>
             <button class="btn btn-outline-danger" id="logout-button">Logout</button>
         </div>
@@ -66,79 +114,128 @@
         <div id="view-container"></div>
     </main>
     
+    <!-- All Modals -->
     <div class="modal fade" id="case-modal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modal-title"></h5>
-                <div class="validation-toggle-container ms-auto">
-                    <span class="form-label mb-0">Data Validation:</span>
-                    <button id="validation-toggle" class="validation-toggle-btn"></button>
-                </div>
-                <button type="button" class="btn-close ms-2" data-bs-dismiss="modal"></button>
-            </div>
+            <div class="modal-header"><h5 class="modal-title" id="modal-title"></h5><div class="validation-toggle-container ms-auto"><span class="form-label mb-0">Data Validation:</span><button id="validation-toggle" class="validation-toggle-btn"></button></div><button type="button" class="btn-close ms-2" data-bs-dismiss="modal"></button></div>
             <div class="modal-body"><form id="case-form" class="row g-3" novalidate></form></div>
         </div></div>
     </div>
-
     <div class="modal fade" id="bulk-case-modal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Bulk Add Cases</h5><div class="validation-toggle-container ms-auto"><span class="form-label mb-0">Data Validation:</span><button id="bulk-validation-toggle" class="validation-toggle-btn"></button></div><button type="button" class="btn-close ms-2" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p class="mb-1">Download the template, fill it with your data, and then upload the file below.</p>
+                <p class="small text-muted">Expected column order: <strong id="bulk-modal-headers"></strong></p>
+                <a href="#" id="download-template-btn" class="btn btn-sm btn-outline-secondary mb-3"><i class="bi bi-download me-2"></i>Download CSV Template</a>
+                <form id="bulk-case-form">
+                    <div class="mb-3"><label for="bulk-file-input" class="form-label">Upload CSV or Excel File:</label><input type="file" id="bulk-file-input" class="form-control" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" required></div>
+                    <button type="submit" class="btn btn-primary w-100 mt-3">Upload and Process File</button>
+                </form>
+            </div>
+        </div></div>
+    </div>
+    <div class="modal fade" id="user-assignment-modal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title" id="user-assignment-modal-title">Assign Users</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <p class="small">Select users to restrict access to this sheet. If no users are selected, the sheet will be visible to all relevant users in this location.</p>
+                    <div class="d-flex gap-2 mb-3"><input type="search" id="user-assignment-search" class="form-control" placeholder="Search for users..."><button class="btn btn-outline-secondary" id="select-females-btn" type="button" title="Select Females Only"><i class="bi bi-gender-female"></i></button></div>
+                    <div id="user-assignment-modal-list" class="list-group"></div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" id="save-user-assignments-btn">Save Changes</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODIFICATION: New Modal for QR Code Display -->
+    <div class="modal fade" id="qr-code-modal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Bulk Add Cases</h5>
-                    <div class="validation-toggle-container ms-auto">
-                        <span class="form-label mb-0">Data Validation:</span>
-                        <button id="bulk-validation-toggle" class="validation-toggle-btn"></button>
-                    </div>
-                    <button type="button" class="btn-close ms-2" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" id="qr-code-modal-title">Authenticator Setup</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <p class="mb-1">Download the template, fill it with your data, and then upload the file below.</p>
-                    <p class="small text-muted">Expected column order: <strong id="bulk-modal-headers"></strong></p>
-                    <a href="#" id="download-template-btn" class="btn btn-sm btn-outline-secondary mb-3"><i class="bi bi-download me-2"></i>Download CSV Template</a>
-                    <form id="bulk-case-form">
-                        <div class="mb-3">
-                            <label for="bulk-file-input" class="form-label">Upload CSV or Excel File:</label>
-                            <input type="file" id="bulk-file-input" class="form-control" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100 mt-3">Upload and Process File</button>
-                    </form>
+                <div class="modal-body text-center">
+                    <p>Scan the QR code with your authenticator app (e.g., Google Authenticator).</p>
+                    <img id="qr-code-image" src="" alt="QR Code" class="img-fluid mb-3" style="max-width: 250px;">
+                    <p class="small text-muted">If you cannot scan, manually enter this key:</p>
+                    <div class="input-group">
+                        <input type="text" id="totp-secret-key-input" class="form-control" readonly>
+                        <button class="btn btn-outline-secondary" id="copy-totp-key-btn"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Done</button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Toasts -->
     <div id="undo-toast" class="toast align-items-center text-bg-dark border-0">
-        <div class="d-flex"><div class="toast-body">Case deleted.<button class="btn btn-link btn-sm text-white p-0 ms-2" id="undo-btn"><strong>Undo</strong></button></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
+        <div class="d-flex"><div class="toast-body">Case marked for deletion.<button class="btn btn-link btn-sm text-white p-0 ms-2" id="undo-btn"><strong>Undo</strong></button></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
     </div>
     <div id="notification-toast" class="toast align-items-center border-0">
         <div class="d-flex"><div class="toast-body"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
     </div>
 
+    <button id="save-changes-button" class="btn btn-success rounded-pill shadow-lg">
+        <i class="bi bi-cloud-upload-fill fs-5 me-2"></i>
+        Submit All Changes
+    </button>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // --- GLOBAL STATE & MODAL INITIALIZATION ---
         let currentSpreadsheetId = '', currentTabName = '', currentHeaders = [], currentlyEditingCaseId = null, currentSchema = [];
-        let deleteTimeout = null;
         let searchTimeout = null; 
         let currentData = [];
+        let localChanges = { additions: {}, updates: {}, deletions: [] };
+        let undoStack = [];
+        let lastActiveCell = null;
+
+        let isMouseDown = false;
+        let isDragging = false;
+        let selectionStartCell = null;
+        let selectionEndCell = null;
+
         const caseModal = new bootstrap.Modal(document.getElementById('case-modal'));
         const bulkCaseModal = new bootstrap.Modal(document.getElementById('bulk-case-modal'));
-        const undoToast = new bootstrap.Toast(document.getElementById('undo-toast'), { autohide: false });
+        const userAssignmentModal = new bootstrap.Modal(document.getElementById('user-assignment-modal'));
+        const qrCodeModal = new bootstrap.Modal(document.getElementById('qr-code-modal')); // MODIFICATION: New Modal instance
+        const undoToast = new bootstrap.Toast(document.getElementById('undo-toast'), { delay: 5000 });
         const notificationToast = new bootstrap.Toast(document.getElementById('notification-toast'));
+        
+        // --- UTILITY & CORE FUNCTIONS ---
+        function recordUndoState() {
+            undoStack.push(JSON.parse(JSON.stringify(localChanges)));
+        }
 
+        function handleUndo() {
+            if (undoStack.length === 0) return;
+            localChanges = undoStack.pop();
+            renderDataView();
+            updateSaveButtonVisibility();
+        }
+
+        function updateSaveButtonVisibility() {
+            const saveButton = document.getElementById('save-changes-button');
+            const hasChanges = Object.keys(localChanges.additions).length > 0 || 
+                               Object.keys(localChanges.updates).length > 0 || 
+                               localChanges.deletions.length > 0;
+            const view = localStorage.getItem('dataView') || 'spreadsheet';
+            saveButton.style.display = hasChanges && view === 'spreadsheet' ? 'flex' : 'none';
+        }
+        
         function downloadReport(format, dataSource, fileName) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            
             const table = (typeof dataSource === 'string') ? document.querySelector(dataSource) : dataSource;
-
-            if (!table) {
-                showToast('Report data not found.', 'danger');
-                return;
-            }
-
+            if (!table) { showToast('Report data not found.', 'danger'); return; }
             const title = fileName.replace(/_/g, ' ');
             fileName = `${fileName}_Report_${new Date().toISOString().slice(0,10)}`;
-
             if (format === 'pdf') {
                 doc.text(title, 14, 15);
                 doc.autoTable({ html: table, startY: 20 });
@@ -148,97 +245,48 @@
                 XLSX.writeFile(wb, `${fileName}.xlsx`);
             }
         }
-
         function toggleValidationAttributes(shouldValidate) {
             const form = document.getElementById('case-form');
+            if(!form) return;
             form.noValidate = !shouldValidate;
-
             form.querySelectorAll('input, select').forEach(input => {
                 const header = input.name;
                 const fieldSchema = currentSchema.find(f => f.name === header) || {};
-                
                 input.removeAttribute('required');
                 input.removeAttribute('pattern');
                 input.removeAttribute('maxlength');
                 input.removeAttribute('title');
                 input.style.textTransform = 'none';
-
                 if (shouldValidate) {
-                    if (fieldSchema.required === true || String(fieldSchema.required).toLowerCase() === 'true') {
-                        input.setAttribute('required', 'true');
-                    }
-                    
+                    if (fieldSchema.required === true || String(fieldSchema.required).toLowerCase() === 'true') { input.setAttribute('required', 'true'); }
                     const type = fieldSchema.type;
-                    if (type === 'date') {
-                        input.setAttribute('pattern', `\\d{4}-\\d{2}-\\d{2}`);
-                        input.setAttribute('title', `Please use YYYY-MM-DD format.`);
-                    } else if (type === 'year') {
-                        input.setAttribute('pattern', '\\d{4}');
-                        input.setAttribute('title', 'Must be a 4-digit year.');
-                    } else if (type === 'pincode') {
-                        input.setAttribute('pattern', '\\d{6}');
-                        input.setAttribute('title', 'Must be a 6-digit pincode.');
-                    } else if (type === 'aadhar') {
-                        input.setAttribute('pattern', '\\d{12}');
-                        input.setAttribute('title', 'Must be a 12-digit Aadhar number.');
-                    } else if (type === 'phone_number') {
-                        input.setAttribute('pattern', '\\d{10}');
-                        input.setAttribute('title', 'Must be a 10-digit phone number.');
-                    } else if (type === 'police_number') {
-                        input.setAttribute('pattern', '\\d{3,4}');
-                        input.setAttribute('title', 'Must be 3 to 4 digits.');
-                    } else if (type === 'pan') {
-                        input.setAttribute('pattern', '[A-Z]{5}[0-9]{4}[A-Z]{1}');
-                        input.setAttribute('title', 'Must be a valid PAN format (e.g., ABCDE1234F).');
-                        input.style.textTransform = 'uppercase';
-                    } else if (type === 'vehicle_number') {
-                        input.setAttribute('pattern', '[A-Z]{2}[0-9]{1,2}[A-Z]{1,2}[0-9]{4}');
-                        input.setAttribute('title', 'Must be a valid Vehicle Number format (e.g., TN01AB1234).');
-                        input.style.textTransform = 'uppercase';
-                    } else if (type === 'time_24hr') {
-                        input.setAttribute('pattern', '([01]\\d|2[0-3]):([0-5]\\d)(?::([0-5]\\d))?');
-                        input.setAttribute('title', 'Use HH:MM or HH:MM:SS format.');
-                    } else if (type === 'time_12hr') {
-                        input.setAttribute('pattern', '(0?[1-9]|1[0-2]):([0-5]\\d)(?::([0-5]\\d))?\\s?[AP]M');
-                        input.setAttribute('title', 'Use hh:mm AM/PM format.');
-                        input.style.textTransform = 'uppercase';
-                    } else if (type === 'latitude_tn') {
-                        input.setAttribute('pattern', '(8|9|1[0-3])\\.\\d{5,}');
-                        input.setAttribute('title', 'Must be a valid TN Latitude (8.0-13.99) with at least 5 decimal places.');
-                    } else if (type === 'longitude_tn') {
-                        input.setAttribute('pattern', '(7[6-9]|80)\\.\\d{5,}');
-                        input.setAttribute('title', 'Must be a valid TN Longitude (76.0-80.99) with at least 5 decimal places.');
-                    } else if (type === 'decimal_latlon') {
-                        input.setAttribute('pattern', '\\d{1,3}\\.\\d+');
-                        input.setAttribute('title', 'Must be a decimal value (e.g., 12.3456).');
-                    } else if (fieldSchema.format) {
+                    if (type === 'date') { input.setAttribute('pattern', `\\d{4}-\\d{2}-\\d{2}`); input.setAttribute('title', `Please use YYYY-MM-DD format.`); } 
+                    else if (type === 'year') { input.setAttribute('pattern', '\\d{4}'); input.setAttribute('title', 'Must be a 4-digit year.'); } 
+                    else if (type === 'pincode') { input.setAttribute('pattern', '\\d{6}'); input.setAttribute('title', 'Must be a 6-digit pincode.'); } 
+                    else if (type === 'aadhar') { input.setAttribute('pattern', '\\d{12}'); input.setAttribute('title', 'Must be a 12-digit Aadhar number.'); } 
+                    else if (type === 'phone_number') { input.setAttribute('pattern', '\\d{10}'); input.setAttribute('title', 'Must be a 10-digit phone number.'); } 
+                    else if (type === 'police_number') { input.setAttribute('pattern', '\\d{3,4}'); input.setAttribute('title', 'Must be 3 to 4 digits.'); } 
+                    else if (type === 'pan') { input.setAttribute('pattern', '[A-Z]{5}[0-9]{4}[A-Z]{1}'); input.setAttribute('title', 'Must be a valid PAN format (e.g., ABCDE1234F).'); input.style.textTransform = 'uppercase'; } 
+                    else if (type === 'vehicle_number') { input.setAttribute('pattern', '[A-Z]{2}[0-9]{1,2}[A-Z]{1,2}[0-9]{4}'); input.setAttribute('title', 'Must be a valid Vehicle Number format (e.g., TN01AB1234).'); input.style.textTransform = 'uppercase'; } 
+                    else if (type === 'time_24hr') { input.setAttribute('pattern', '([01]\\d|2[0-3]):([0-5]\\d)(?::([0-5]\\d))?'); input.setAttribute('title', 'Use HH:MM or HH:MM:SS format.'); } 
+                    else if (type === 'time_12hr') { input.setAttribute('pattern', '(0?[1-9]|1[0-2]):([0-5]\\d)(?::([0-5]\\d))?\\s?[AP]M'); input.setAttribute('title', 'Use hh:mm AM/PM format.'); input.style.textTransform = 'uppercase'; } 
+                    else if (fieldSchema.format) {
                         let pattern = '';
-                        for (const char of fieldSchema.format) {
-                            pattern += (char === '_') ? (type === 'number' ? '\\d' : '.') : char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                        }
+                        for (const char of fieldSchema.format) { pattern += (char === '_') ? (type === 'number' ? '\\d' : '.') : char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
                         input.setAttribute('pattern', `^${pattern}$`);
                         input.setAttribute('title', `Must match the format: ${fieldSchema.format}`);
                     } else if (type === 'number' && fieldSchema.length) {
                         const isFixed = fieldSchema.isFixed === true || String(fieldSchema.isFixed).toLowerCase() === 'true';
-                        if (isFixed) {
-                            input.setAttribute('pattern', `[0-9]{${fieldSchema.length}}`);
-                            input.setAttribute('title', `Must be exactly ${fieldSchema.length} digits.`);
-                        } else {
-                            input.setAttribute('pattern', `[0-9]{1,${fieldSchema.length}}`);
-                            input.setAttribute('title', `Maximum ${fieldSchema.length} digits.`);
-                            input.setAttribute('maxlength', fieldSchema.length);
-                        }
-                    } else if (type === 'text' && fieldSchema.length) {
-                         input.setAttribute('maxlength', fieldSchema.length);
-                    }
+                        if (isFixed) { input.setAttribute('pattern', `[0-9]{${fieldSchema.length}}`); input.setAttribute('title', `Must be exactly ${fieldSchema.length} digits.`); } 
+                        else { input.setAttribute('pattern', `[0-9]{1,${fieldSchema.length}}`); input.setAttribute('title', `Maximum ${fieldSchema.length} digits.`); input.setAttribute('maxlength', fieldSchema.length); }
+                    } else if (type === 'text' && fieldSchema.length) { input.setAttribute('maxlength', fieldSchema.length); }
                 }
             });
         }
-        
         const validationToggleBtn = document.getElementById('validation-toggle');
         const bulkValidationToggleBtn = document.getElementById('bulk-validation-toggle');
-
         function setupValidationToggle(button) {
+            if (!button) return;
             button.addEventListener('click', () => {
                 const isCurrentlyOn = button.classList.contains('on');
                 localStorage.setItem('dataValidation', !isCurrentlyOn);
@@ -247,22 +295,15 @@
         }
         setupValidationToggle(validationToggleBtn);
         setupValidationToggle(bulkValidationToggleBtn);
-
         function updateValidationToggles(isOn) {
             [validationToggleBtn, bulkValidationToggleBtn].forEach(button => {
-                if (isOn) {
-                    button.classList.add('on');
-                    button.classList.remove('off');
-                    button.textContent = 'ON';
-                } else {
-                    button.classList.add('off');
-                    button.classList.remove('on');
-                    button.textContent = 'OFF';
+                if (button) {
+                    if (isOn) { button.classList.add('on'); button.classList.remove('off'); button.textContent = 'ON'; } 
+                    else { button.classList.add('off'); button.classList.remove('on'); button.textContent = 'OFF'; }
                 }
             });
             toggleValidationAttributes(isOn);
         }
-
         function showToast(message, type = 'success') {
             const toastEl = document.getElementById('notification-toast');
             toastEl.querySelector('.toast-body').textContent = message;
@@ -277,491 +318,917 @@
             const caseIdKey = Object.keys(caseData).find(k => k.toLowerCase() === 'caseid');
             currentlyEditingCaseId = isEditing && caseIdKey ? caseData[caseIdKey] : null;
             const fieldsToShow = currentSchema.length > 0 ? currentSchema.map(f => f.name) : currentHeaders;
-            
-            if (!isEditing && fieldsToShow.some(h => h.toLowerCase() === 'caseid')) {
-                const caseIdHeader = fieldsToShow.find(h => h.toLowerCase() === 'caseid');
-                caseData[caseIdHeader] = `CASE-${Date.now()}`;
-            }
 
             fieldsToShow.forEach(header => {
                 const value = caseData[header] || '';
-                const isReadOnly = header.toLowerCase() === 'caseid';
+                const isReadOnly = isEditing && header.toLowerCase() === 'caseid';
                 const col = document.createElement('div');
                 col.className = 'col-md-6';
                 const fieldSchema = currentSchema.find(f => f.name === header) || {};
                 let inputHtml = '';
-                const inputId = `form-input-${header.replace(/[^a-zA-Z0-9]/g, '-')}`;
-                
-                if (fieldSchema.type === 'date') {
-                     inputHtml = `<div class="input-group">
-                                        <input class="form-control" id="${inputId}" name="${header}" value="${value}" ${isReadOnly ? 'readonly' : ''} type="text" placeholder="YYYY-MM-DD">
-                                        <button class="btn btn-outline-secondary" type="button" onclick="const el = document.getElementById('${inputId}'); el.type='date'; try { el.showPicker(); } catch(e) { el.focus(); }"><i class="bi bi-calendar-event"></i></button>
-                                      </div>`;
-                } else {
-                    inputHtml = `<input class="form-control" name="${header}" value="${value}" ${isReadOnly ? 'readonly style="background-color:#e9ecef;"' : ''}>`;
-                }
 
+                if (fieldSchema.type === 'options' && Array.isArray(fieldSchema.options)) {
+                    const optionsHtml = fieldSchema.options.map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`).join('');
+                    inputHtml = `<select class="form-select" name="${header}"><option value="">-- Select --</option>${optionsHtml}</select>`;
+                } else {
+                    const inputId = `form-input-${header.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                    if (fieldSchema.type === 'date') {
+                        inputHtml = `<div class="input-group"><input class="form-control" id="${inputId}" name="${header}" value="${value}" ${isReadOnly ? 'readonly' : ''} type="text" placeholder="YYYY-MM-DD"><button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('${inputId}').type='date';"><i class="bi bi-calendar-event"></i></button></div>`;
+                    } else {
+                        inputHtml = `<input class="form-control" name="${header}" value="${value}" ${isReadOnly ? 'readonly style="background-color:#e9ecef;"' : ''}>`;
+                    }
+                }
+                
                 col.innerHTML = `<div class="mb-3"><label class="form-label">${header}</label>${inputHtml}</div>`;
                 form.appendChild(col);
             });
-            form.innerHTML += '<div class="col-12 mt-3"><button class="btn btn-primary w-100" type="submit">Save Changes</button></div>';
 
+            form.innerHTML += '<div class="col-12 mt-3"><button class="btn btn-primary w-100" type="submit">Save Changes</button></div>';
             const validationPref = localStorage.getItem('dataValidation') !== 'false';
             updateValidationToggles(validationPref);
-
             caseModal.show();
         }
-
+        
         function renderDataView() {
-            const view = localStorage.getItem('dataView') || 'table';
-            const contentContainer = document.getElementById('data-view-wrapper'); 
+            const view = localStorage.getItem('dataView') || 'spreadsheet';
+            const contentContainer = document.getElementById('data-view-wrapper');
             if (!contentContainer) return;
 
-            document.getElementById('table-view-btn').classList.toggle('active', view === 'table');
+            document.getElementById('spreadsheet-view-btn').classList.toggle('active', view === 'spreadsheet');
             document.getElementById('card-view-btn').classList.toggle('active', view === 'card');
+            document.getElementById('table-view-btn').classList.toggle('active', view === 'table');
+            
+            updateSaveButtonVisibility();
 
-            if (currentData.length === 0) {
-                contentContainer.innerHTML = `<div class="text-center p-4"><p>No case data found for '${currentTabName}'.</p></div>`;
+            const caseIdHeader = currentHeaders.find(h => h.toLowerCase() === 'caseid') || currentHeaders[0];
+            
+            const allData = [ 
+                ...currentData, 
+                ...Object.values(localChanges.additions) 
+            ];
+
+            const visibleData = allData.filter(row => 
+                !localChanges.deletions.includes(isNewRow(row) ? row.tempId : row[caseIdHeader])
+            );
+
+            if (visibleData.length === 0) {
+                let emptyHTML = `<div class="text-center p-5"><i class="bi bi-info-circle fs-1 text-muted"></i><p class="mt-3">No case data found for '${currentTabName}'.</p></div>`;
+                if (view === 'spreadsheet') {
+                     emptyHTML = `<div class="table-responsive-container"><table class="table spreadsheet-view-table" id="main-spreadsheet-table">
+                        <thead><tr><th>#</th>${currentHeaders.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                        <tbody><tr><td colspan="${currentHeaders.length + 1}" class="text-center p-4">No data. Click 'Add Row' to begin.</td></tr></tbody>
+                        <tfoot><tr><td colspan="${currentHeaders.length + 1}"><button id="add-spreadsheet-row-btn" class="btn btn-outline-success btn-sm w-100">+ Add Row</button></td></tr></tfoot>
+                    </table></div>`;
+                }
+                contentContainer.innerHTML = emptyHTML;
                 return;
             }
 
-            if (view === 'table') {
-                let tableHTML = `<div class="table-responsive"><table class="table table-hover" id="main-data-table"><thead><tr>${currentHeaders.map(h => `<th>${h}</th>`).join('')}<th>Actions</th></tr></thead><tbody>`;
-                currentData.forEach((row, rowIndex) => {
-                    const caseIdKey = Object.keys(row).find(k => k.toLowerCase() === 'caseid');
-                    const caseId = row[caseIdKey];
-                    tableHTML += `<tr id="row-${caseId}">${currentHeaders.map((h, colIndex) => {
-                        const val = row[h] || '';
-                        const isEmpty = val.toString().trim() === '';
-                        const cellA1 = `${String.fromCharCode(65 + colIndex)}${rowIndex + 2}`;
-                        return `<td class="${isEmpty ? 'empty-cell' : ''}" data-cell-id="${cellA1}">${val}</td>`;
-                    }).join('')}
-                                <td class="action-btns"><button class="btn btn-warning btn-action edit-btn" data-casedata='${JSON.stringify(row)}'><i class="bi bi-pencil-fill"></i></button>
-                                <button class="btn btn-danger btn-action delete-btn" data-caseid="${caseId}"><i class="bi bi-trash-fill"></i></button></td></tr>`;
+            if (view === 'spreadsheet') {
+                let tableHTML = `<div class="table-responsive-container"><table class="table spreadsheet-view-table" id="main-spreadsheet-table">
+                    <thead><tr><th>#</th>${currentHeaders.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                    <tbody>`;
+                
+                visibleData.forEach((row, index) => {
+                    const isNew = isNewRow(row);
+                    const caseId = isNew ? row.tempId : row[caseIdHeader];
+                    const isUpdated = !!localChanges.updates[caseId];
+
+                    let rowClasses = [];
+                    if (isNew || isUpdated) rowClasses.push('unsaved-change');
+                    if (isNew) rowClasses.push('new-row');
+                    
+                    tableHTML += `<tr id="row-${caseId}" data-caseid="${caseId}" class="${rowClasses.join(' ')}">
+                        <td class="row-header">${index + 2}<button class="btn btn-danger btn-sm delete-btn-spreadsheet" title="Mark for Deletion" data-caseid="${caseId}"><i class="bi bi-trash"></i></button></td>
+                        ${currentHeaders.map((h, colIndex) => {
+                            return `<td data-header="${h}" data-cell-id="${String.fromCharCode(65 + colIndex)}${index + 2}" contenteditable="true">${row[h] || ''}</td>`;
+                        }).join('')}
+                    </tr>`;
                 });
-                tableHTML += '</tbody></table></div>';
+
+                tableHTML += `</tbody>
+                    <tfoot><tr><td colspan="${currentHeaders.length + 1}"><button id="add-spreadsheet-row-btn" class="btn btn-outline-success btn-sm w-100">+ Add Row</button></td></tr></tfoot>
+                </table></div>`;
                 contentContainer.innerHTML = tableHTML;
-            } else { // Card View
-                let cardsHTML = '<div class="card-view-grid">';
-                currentData.forEach((row, rowIndex) => {
-                    const caseIdKey = Object.keys(row).find(k => k.toLowerCase() === 'caseid');
-                    const caseId = row[caseIdKey];
-                    cardsHTML += `
-                        <div class="card case-card" id="row-${caseId}">
-                            <div class="card-header">${caseId}</div>
-                            <div class="card-body">
-                                ${currentHeaders.filter(h => h.toLowerCase() !== 'caseid').map(h => {
-                                    const val = row[h] || '';
-                                    const isEmpty = val.toString().trim() === '';
-                                    const originalColIndex = currentHeaders.indexOf(h);
-                                    const cellA1 = `${String.fromCharCode(65 + originalColIndex)}${rowIndex + 2}`;
-                                    return `<p><strong>${h}:</strong> <span class="${isEmpty ? 'text-muted' : ''}" data-cell-id="${cellA1}">${isEmpty ? 'N/A' : val}</span></p>`
-                                }).join('')}
-                            </div>
-                            <div class="card-footer text-end">
-                                <button class="btn btn-warning btn-action edit-btn" data-casedata='${JSON.stringify(row)}'><i class="bi bi-pencil-fill"></i> Edit</button>
-                                <button class="btn btn-danger btn-action delete-btn" data-caseid="${caseId}"><i class="bi bi-trash-fill"></i> Delete</button>
-                            </div>
-                        </div>`;
-                });
-                cardsHTML += '</div>';
-                contentContainer.innerHTML = cardsHTML;
+                
+            } else { 
+                let renderableData = currentData.filter(row => !localChanges.deletions.includes(row[caseIdHeader]));
+                if (view === 'card') { 
+                    contentContainer.innerHTML = `<div class="card-view-grid">${renderableData.map(row => { const caseId = row[caseIdHeader]; return `<div class="card case-card" id="row-${caseId}"><div class="card-header">${caseId}</div><div class="card-body">${currentHeaders.filter(h => h.toLowerCase() !== 'caseid').map(h => `<p><strong>${h}:</strong> <span class="${(row[h] || '').toString().trim() === '' ? 'text-muted' : ''}">${(row[h] || '').toString().trim() === '' ? 'N/A' : row[h]}</span></p>`).join('')}</div><div class="card-footer text-end"><button class="btn btn-warning btn-action edit-btn" data-casedata='${JSON.stringify(row)}'><i class="bi bi-pencil-fill"></i> Edit</button><button class="btn btn-danger btn-action delete-btn" data-caseid="${caseId}"><i class="bi bi-trash-fill"></i> Delete</button></div></div>`; }).join('')}</div>`;
+                } else { // Table View
+                    contentContainer.innerHTML = `<div class="table-responsive-container"><table class="table table-hover" id="main-data-table"><thead><tr>${currentHeaders.map(h => `<th>${h}</th>`).join('')}<th>Actions</th></tr></thead><tbody>${renderableData.map(row => { const caseId = row[caseIdHeader]; return `<tr id="row-${caseId}">${currentHeaders.map(h => `<td class="${(row[h] || '').toString().trim() === '' ? 'empty-cell' : ''}">${row[h] || ''}</td>`).join('')}<td class="action-btns"><button class="btn btn-warning btn-action edit-btn" data-casedata='${JSON.stringify(row)}'><i class="bi bi-pencil-fill"></i></button><button class="btn btn-danger btn-action delete-btn" data-caseid="${caseId}"><i class="bi bi-trash-fill"></i></button></td></tr>`; }).join('')}</tbody></table></div>`;
+                }
             }
         }
 
-        async function displayDataInterface(containerId, spreadsheetId, allowedTabs, userRole) {
-            currentSpreadsheetId = spreadsheetId;
+        function isNewRow(row) {
+            return row && row.tempId;
+        }
+
+        function highlightErrorCells(errorCellsA1) {
+            document.querySelectorAll('.spreadsheet-view-table td.cell-error').forEach(cell => cell.classList.remove('cell-error'));
+            if (!errorCellsA1 || errorCellsA1.length === 0) return;
+            
+            errorCellsA1.forEach(a1 => {
+                const cell = document.querySelector(`td[data-cell-id="${a1}"]`);
+                if (cell) cell.classList.add('cell-error');
+            });
+        }
+
+        function showOptionsPanel(cell) {
+            document.getElementById('spreadsheet-options-panel')?.remove();
+            const header = cell.dataset.header;
+            const schema = currentSchema.find(s => s.name === header);
+            const options = schema?.type === 'options' && schema?.options ? schema.options : [];
+            if (options.length === 0) return;
+
+            const panel = document.createElement('div');
+            panel.id = 'spreadsheet-options-panel';
+            const rect = cell.getBoundingClientRect();
+            panel.style.top = `${rect.bottom + window.scrollY}px`;
+            panel.style.left = `${rect.left + window.scrollX}px`;
+            panel.style.minWidth = `${rect.width}px`;
+            panel.innerHTML = options.map(option => `<div class="options-panel-item" data-value="${option}">${option}</div>`).join('');
+            
+            panel.addEventListener('click', (e) => {
+                const item = e.target.closest('.options-panel-item');
+                if (item) {
+                    e.stopPropagation();
+                    cell.textContent = item.dataset.value;
+                    panel.remove();
+                    cell.dispatchEvent(new Event('blur', { bubbles: true })); // Trigger save
+                }
+            });
+            document.body.appendChild(panel);
+        }
+        
+        async function runValidation(btn = null) {
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Processing...`;
+            }
+            try {
+                const res = await fetch('http://127.0.0.1:5000/validate-and-format-sheet', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ spreadsheet_id: currentSpreadsheetId, tab_name: currentTabName }) });
+                const result = await res.json();
+                if (!res.ok) throw new Error(result.message || 'Validation request failed');
+                
+                showToast(result.message, result.success ? 'success' : 'danger');
+                if (result.success) {
+                    currentData = result.data || [];
+                    localChanges = { additions: {}, updates: {}, deletions: [] };
+                    undoStack = [];
+                    renderDataView();
+                    highlightErrorCells(result.error_cells);
+                }
+            } catch (error) {
+                 showToast(`Validation Error: ${error.message}`, 'danger');
+            } finally {
+                 if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>Validate`;
+                }
+            }
+        }
+        
+        async function displayDataInterface(containerId, spreadsheetId, categorizedSheets, userRole) {
             const container = document.getElementById(containerId);
             const searchBarId = `${containerId}-search-bar`;
 
-            let headerControls = `
-                <div class="d-flex justify-content-between align-items-center my-3">
-                    <div class="input-group" style="max-width: 400px;">
-                        <span class="input-group-text bg-light border-0"><i class="bi bi-search"></i></span>
-                        <input type="text" id="${searchBarId}" class="form-control bg-light border-0" placeholder="Search cases...">
+            if (userRole === 'sdo' || userRole === 'normal') {
+                container.innerHTML = `
+                    <div class="offcanvas offcanvas-start" tabindex="-1" id="sheetsOffcanvas" aria-labelledby="sheetsOffcanvasLabel">
+                      <div class="offcanvas-header"><h5 class="offcanvas-title" id="sheetsOffcanvasLabel">Case Types</h5><button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
+                      <div class="offcanvas-body" id="${containerId}-sheets-list-container"></div>
                     </div>
-                    <div class="view-toggle btn-group">
-                        <button id="table-view-btn" class="btn btn-outline-secondary"><i class="bi bi-table"></i></button>
-                        <button id="card-view-btn" class="btn btn-outline-secondary"><i class="bi bi-grid-3x3-gap-fill"></i></button>
-                    </div>
-                </div>`;
-            
-            container.innerHTML = `<div class="main-container"><ul class="nav nav-tabs" id="${containerId}-tabs"></ul>${headerControls}<div class="tab-content" id="${containerId}-content"></div></div>`;
-            const tabsContainer = document.getElementById(`${containerId}-tabs`);
-            const tabContentContainer = document.getElementById(`${containerId}-content`);
+                    <div class="main-container">
+                        <div class="content-header">
+                            <div class="header-left d-flex align-items-center">
+                                <button class="btn p-0 me-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#sheetsOffcanvas" aria-controls="sheetsOffcanvas" id="sidebar-toggle"><i class="bi bi-list fs-2"></i></button>
+                                <h4 id="${containerId}-current-sheet-title" class="mb-0">Select a Case Type</h4>
+                            </div>
+                            <div class="input-group" style="max-width: 400px;">
+                                <span class="input-group-text bg-light border-0"><i class="bi bi-search"></i></span>
+                                <input type="text" id="${searchBarId}" class="form-control bg-light border-0" placeholder="Search cases...">
+                            </div>
+                        </div>
+                        <hr>
+                        <div id="${containerId}-content"><div class="text-center p-5"><p class="text-muted">Please select a case type from the menu to view data.</p></div></div>
+                    </div>`;
+                
+                const sheetsListContainer = document.getElementById(`${containerId}-sheets-list-container`);
+                const { role_based = [], restricted = [] } = categorizedSheets;
 
-            document.getElementById('table-view-btn').addEventListener('click', () => {
-                localStorage.setItem('dataView', 'table');
-                renderDataView();
-            });
-            document.getElementById('card-view-btn').addEventListener('click', () => {
-                localStorage.setItem('dataView', 'card');
-                renderDataView();
-            });
+                let accordionHTML = '<div class="accordion" id="sheet-categories-accordion">';
+                const createAccordionItem = (id, title, sheets, isExpanded = false) => {
+                    let listContent = sheets.length > 0
+                        ? sheets.map(name => `<a href="#" class="list-group-item list-group-item-action sheet-link" data-spreadsheet-id="${spreadsheetId}">${name}</a>`).join('')
+                        : '<div class="list-group-item disabled">No sheets in this category.</div>';
+                    return `<div class="accordion-item">
+                            <h2 class="accordion-header"><button class="accordion-button ${isExpanded ? '' : 'collapsed'}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-${id}">
+                                ${title} <span class="badge bg-secondary ms-2">${sheets.length}</span></button></h2>
+                            <div id="collapse-${id}" class="accordion-collapse collapse ${isExpanded ? 'show' : ''}" data-bs-parent="#sheet-categories-accordion">
+                                <div class="accordion-body"><div class="list-group list-group-flush">${listContent}</div></div>
+                            </div></div>`;
+                };
+                
+                const hasAnySheets = role_based.length + restricted.length > 0;
+                accordionHTML += createAccordionItem('role', 'My Location Sheets', role_based, hasAnySheets);
+                accordionHTML += createAccordionItem('restricted', 'Assigned Sheets', restricted, hasAnySheets);
+                accordionHTML += '</div>';
+                sheetsListContainer.innerHTML = accordionHTML;
 
-            document.getElementById(searchBarId).addEventListener('input', () => {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    const activeTab = document.querySelector(`#${containerId}-tabs .nav-link.active`);
-                    if (activeTab) activeTab.click();
-                }, 300);
-            });
+                document.getElementById(searchBarId).addEventListener('input', () => {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        const activeLink = sheetsListContainer.querySelector('.sheet-link.active');
+                        if (activeLink) loadSheetData(activeLink);
+                    }, 300);
+                });
 
-            allowedTabs.forEach((tabName, index) => {
-                const li = document.createElement('li');
-                li.className = 'nav-item';
-                li.innerHTML = `<a class="nav-link ${index === 0 ? 'active' : ''}" href="#">${tabName}</a>`;
-                tabsContainer.appendChild(li);
-                li.querySelector('a').addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    currentTabName = tabName;
-                    tabsContainer.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-                    e.target.classList.add('active');
-                    tabContentContainer.innerHTML = '<p class="p-3 text-center">Loading data...</p>';
-                    const searchQuery = document.getElementById(searchBarId)?.value || '';
-                    const response = await fetch('http://127.0.0.1:5000/get-sheet-data', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ spreadsheet_id: currentSpreadsheetId, tab_name: tabName, search_query: searchQuery })
-                    });
-                    const result = await response.json();
-                    currentSchema = result.schema || [];
-                    currentHeaders = result.headers || [];
-                    currentData = result.success ? (result.data || []) : [];
-
-                    let topButtonsHTML = `<div class="d-flex justify-content-end my-3 gap-2">
-                                            <button class="btn btn-primary btn-sm" id="validate-sheet-btn"><i class="bi bi-check-circle-fill me-2"></i>Validate & Format Sheet</button>
-                                            <button class="btn btn-info btn-sm" id="bulk-add-btn"><i class="bi bi-upload me-2"></i>Bulk Add Cases</button>
-                                            <button class="btn btn-success btn-sm" id="add-case-btn"><i class="bi bi-plus-circle-fill me-2"></i>Add New Case</button>
-                                          </div>`;
-                    
-                    let dataDisplayHTML = `<div id="data-view-wrapper"></div>`;
-
-                    tabContentContainer.innerHTML = topButtonsHTML + dataDisplayHTML;
-
-                    renderDataView();
-
-                    document.getElementById('add-case-btn').onclick = () => showModal(false);
-                    document.getElementById('bulk-add-btn').onclick = () => {
-                        document.getElementById('bulk-modal-headers').textContent = currentHeaders.join(', ');
-                        const validationPref = localStorage.getItem('dataValidation') !== 'false';
-                        updateValidationToggles(validationPref);
-                        bulkCaseModal.show();
-                    };
-                    document.getElementById('validate-sheet-btn').addEventListener('click', async (event) => {
-                        const btn = event.target;
-                        btn.disabled = true;
-                        btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...`;
-
-                        document.querySelectorAll('[data-cell-id]').forEach(cell => cell.classList.remove('cell-error'));
-
-                        try {
-                            const res = await fetch('http://127.0.0.1:5000/validate-and-format-sheet', {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({ spreadsheet_id: currentSpreadsheetId, tab_name: currentTabName })
-                            });
-                            const result = await res.json();
-                            showToast(result.message, result.success ? 'success' : 'danger');
-                            
-                            if (result.success) {
-                                const activeTabLink = document.querySelector('.nav-link.active');
-                                if(activeTabLink) activeTabLink.click();
-                                
-                                if (result.error_cells && result.error_cells.length > 0) {
-                                    setTimeout(() => {
-                                        result.error_cells.forEach(cellA1 => {
-                                            const cellElement = document.querySelector(`[data-cell-id="${cellA1}"]`);
-                                            if (cellElement) {
-                                                cellElement.classList.add('cell-error');
-                                            }
-                                        });
-                                    }, 200);
-                                }
-                            }
-                        } catch (err) {
-                            showToast('An error occurred while communicating with the server.', 'danger');
-                        } finally {
-                            btn.disabled = false;
-                            btn.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>Validate & Format Sheet`;
-                        }
+                sheetsListContainer.querySelectorAll('.sheet-link').forEach(link => {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        loadSheetData(e.target);
                     });
                 });
-            });
-            if (tabsContainer.querySelector('.nav-link')) tabsContainer.querySelector('.nav-link').click();
+                
+                const firstLink = sheetsListContainer.querySelector('.sheet-link');
+                if (firstLink) {
+                    firstLink.click();
+                } else {
+                    document.getElementById(`${containerId}-current-sheet-title`).textContent = 'No Sheets Available';
+                }
+            }
         }
         
-        window.addEventListener('DOMContentLoaded', async () => {
+        async function loadSheetData(linkElement, force = false) {
+            if (!force && (Object.keys(localChanges.additions).length > 0 || Object.keys(localChanges.updates).length > 0 || Object.keys(localChanges.deletions).length > 0)) {
+                if (!confirm("You have unsaved changes that will be lost. Are you sure you want to switch sheets?")) {
+                    return;
+                }
+            }
+            localChanges = { additions: {}, updates: {}, deletions: [] };
+            undoStack = [];
+            clearSelection();
+
+            const containerId = linkElement.closest('.offcanvas-body').id.replace('-sheets-list-container', '');
+            const tabContentContainer = document.getElementById(`${containerId}-content`);
+            const searchBar = document.getElementById(`${containerId}-search-bar`);
+            
+            currentSpreadsheetId = linkElement.dataset.spreadsheetId;
+            currentTabName = linkElement.textContent;
+            document.getElementById(`${containerId}-current-sheet-title`).textContent = currentTabName;
+            
+            document.querySelectorAll('.sheet-link').forEach(l => l.classList.remove('active'));
+            linkElement.classList.add('active');
+            tabContentContainer.innerHTML = '<p class="p-3 text-center">Loading data...</p>';
+            const searchQuery = searchBar?.value || '';
+            const offcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('sheetsOffcanvas'));
+            if (offcanvas && window.innerWidth < 768) { offcanvas.hide(); }
+            
+            try {
+                const response = await fetch('http://127.0.0.1:5000/get-sheet-data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spreadsheet_id: currentSpreadsheetId, tab_name: currentTabName, search_query: searchQuery }) });
+                if (!response.ok) throw new Error('Failed to fetch sheet data.');
+                const result = await response.json();
+                
+                currentSchema = result.schema || [];
+                currentHeaders = result.headers || [];
+                currentData = result.success ? (result.data || []) : [];
+                
+                let topControlsHTML = `<div class="d-flex justify-content-between my-3 align-items-center flex-wrap gap-2">
+                    <div class="view-toggle btn-group">
+                        <button id="spreadsheet-view-btn" class="btn btn-outline-secondary" title="Spreadsheet View"><i class="bi bi-grid-1x2-fill"></i></button>
+                        <button id="card-view-btn" class="btn btn-outline-secondary" title="Card View"><i class="bi bi-grid-3x3-gap-fill"></i></button>
+                        <button id="table-view-btn" class="btn btn-outline-secondary" title="Table View"><i class="bi bi-table"></i></button>
+                    </div>
+                    <div class="action-buttons-group">
+                        <button class="btn btn-primary" id="validate-sheet-btn"><i class="bi bi-check-circle-fill me-2"></i>Validate</button>
+                        <button class="btn btn-info" id="bulk-add-btn"><i class="bi bi-upload me-2"></i>Bulk Add</button>
+                        <button class="btn btn-success" id="add-case-btn"><i class="bi bi-plus-circle-fill me-2"></i>Add Case</button>
+                        <button class="btn btn-outline-success" id="complete-entry-btn" title="Notify admin that your entries are complete."><i class="bi bi-check2-all me-2"></i>Completed Entry</button>
+                        <button class="btn btn-outline-secondary" id="nil-report-btn" title="Notify admin you have reviewed and have no entries."><i class="bi bi-circle-slash me-2"></i>Nil Report</button>
+                    </div>
+                </div>`;
+                
+                tabContentContainer.innerHTML = topControlsHTML + `<div id="data-view-wrapper"></div>`;
+                renderDataView();
+                
+                document.getElementById('complete-entry-btn').addEventListener('click', () => logUserAction('Completed Entry'));
+                document.getElementById('nil-report-btn').addEventListener('click', () => logUserAction('Nil Report'));
+                document.getElementById('spreadsheet-view-btn').addEventListener('click', () => { localStorage.setItem('dataView', 'spreadsheet'); renderDataView(); });
+                document.getElementById('card-view-btn').addEventListener('click', () => { localStorage.setItem('dataView', 'card'); renderDataView(); });
+                document.getElementById('table-view-btn').addEventListener('click', () => { localStorage.setItem('dataView', 'table'); renderDataView(); });
+                document.getElementById('add-case-btn').onclick = () => showModal(false);
+                document.getElementById('bulk-add-btn').onclick = () => { document.getElementById('bulk-modal-headers').textContent = currentHeaders.join(', '); const validationPref = localStorage.getItem('dataValidation') !== 'false'; updateValidationToggles(validationPref); bulkCaseModal.show(); };
+                document.getElementById('validate-sheet-btn').addEventListener('click', (event) => runValidation(event.target.closest('button')));
+                
+            } catch (error) {
+                showToast('Error loading sheet data. Please try again.', 'danger');
+                tabContentContainer.innerHTML = `<div class="text-center text-danger p-4">Could not load sheet data.</div>`;
+            }
+        }
+        
+        async function logUserAction(action) {
             const userData = JSON.parse(sessionStorage.getItem('userData'));
+            if (!userData) return;
+            const body = { username: userData.username, spreadsheet_id: currentSpreadsheetId, tab_name: currentTabName, action: action };
+            const btn = (action === 'Completed Entry') ? document.getElementById('complete-entry-btn') : document.getElementById('nil-report-btn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Submitting...`;
+            const response = await fetch('http://127.0.0.1:5000/log-user-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const result = await response.json();
+            showToast(result.message, result.success ? 'success' : 'danger');
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+        
+        // MODIFICATION: Logic to show QR Code modal
+        function showQrCode(title, username, qrCodeImage, totpKey) {
+            document.getElementById('qr-code-modal-title').textContent = `${title} for ${username}`;
+            document.getElementById('qr-code-image').src = `data:image/png;base64,${qrCodeImage}`;
+            document.getElementById('totp-secret-key-input').value = totpKey;
+            qrCodeModal.show();
+        }
+
+        async function renderUserManagementPanel(userData, data) {
+            const userPanel = document.getElementById('users-panel');
+            if (!userPanel) return;
+            const userResponse = await fetch('http://127.0.0.1:5000/admin/get-all-users');
+            const userDataForAdmin = await userResponse.json();
+            if (userDataForAdmin.success) {
+                let userTableHTML = userDataForAdmin.users.map(u => `<tr><td>${u.Username}</td><td>${u.Role}</td><td>${u.AccessScope}</td><td>${u.Gender}</td><td>${u.Station}</td></tr>`).join('');
+                userPanel.innerHTML = `<div class="report-header"><h5>All Users</h5></div><div class="table-responsive user-table-container"><table class="table table-sm table-striped" id="users-table"><thead><tr><th>Username</th><th>Role</th><th>Access</th><th>Gender</th><th>Station</th></tr></thead><tbody>${userTableHTML}</tbody></table></div><hr class="my-4"><div class="row g-4"><div class="col-md-6"><h5>Add User</h5><form id="add-user-form"><div class="mb-2"><label class="form-label">Username</label><input type="text" name="username" class="form-control" required></div><div class="mb-2"><label class="form-label">Role</label><select name="role" class="form-select" required><option value="normal">Normal</option><option value="sdo">SDO</option><option value="admin">Admin</option></select></div><div class="mb-2"><label class="form-label">Access Scope</label><div id="access-scope-container"><input type="text" name="accessScope" class="form-control" placeholder="e.g. thoothukudi_town or all" required></div></div><div class="mb-2"><label class="form-label">Gender</label><select name="gender" class="form-select" required><option value="Male">Male</option><option value="Female">Female</option></select></div><div class="mb-2"><label class="form-label">Station</label><input type="text" name="station" class="form-control" required></div><button type="submit" class="btn btn-success w-100 mt-2">Create User</button></form></div><div class="col-md-6"><h5>Reset Authenticator Key</h5><form id="change-password-form"><div class="mb-3"><label class="form-label">Username of User to Reset</label><input type="text" id="change_username" class="form-control" required></div><button type="submit" class="btn btn-warning w-100">Reset Key</button></form></div></div>`;
+                const roleDropdown = document.querySelector('#add-user-form [name="role"]');
+                if (roleDropdown) {
+                    roleDropdown.addEventListener('change', function(e) {
+                        const accessScopeContainer = document.getElementById('access-scope-container');
+                        if (e.target.value === 'admin') {
+                            accessScopeContainer.innerHTML = `<div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="accessScope" id="scope_user" value="user_management" required checked><label class="form-check-label" for="scope_user">User Management</label></div><div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="accessScope" id="scope_sheet" value="sheet_management"><label class="form-check-label" for="scope_sheet">Sheet Management</label></div>`;
+                        } else {
+                            accessScopeContainer.innerHTML = `<input type="text" name="accessScope" class="form-control" placeholder="e.g. thoothukudi_town or all" required>`;
+                        }
+                    });
+                }
+                document.getElementById('add-user-form').addEventListener('submit', async (e) => { 
+                    e.preventDefault(); 
+                    const response = await fetch('http://127.0.0.1:5000/admin/add-user', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(e.target).entries())) }); 
+                    const result = await response.json(); 
+                    showToast(result.message, result.success ? 'success' : 'danger'); 
+                    if (result.success) {
+                        showQrCode('New User Setup', result.username, result.qr_code_image, result.totp_secret_key);
+                        e.target.reset();
+                        renderUserManagementPanel(userData, data);
+                    }
+                });
+                document.getElementById('change-password-form').addEventListener('submit', async (e) => { 
+                    e.preventDefault(); 
+                    const usernameToReset = document.getElementById('change_username').value;
+                    const response = await fetch('http://127.0.0.1:5000/admin/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: usernameToReset }) }); 
+                    const result = await response.json(); 
+                    showToast(result.message, result.success ? 'success' : 'danger'); 
+                    if (result.success) {
+                        showQrCode('Authenticator Key Reset', result.username, result.qr_code_image, result.totp_secret_key);
+                        e.target.reset(); 
+                    }
+                });
+            }
+        }
+        function addOptionInput(container) {
+            const optionRow = document.createElement('div');
+            optionRow.className = 'input-group input-group-sm mb-1';
+            optionRow.innerHTML = `<input type="text" class="form-control field-option-value" placeholder="Option Value"><button class="btn btn-outline-danger remove-option-btn" type="button"><i class="bi bi-x-lg"></i></button>`;
+            container.insertBefore(optionRow, container.querySelector('.add-option-btn'));
+        }
+        async function renderLocationAndSheetManagementPanel(userData, data) {
+            const locationsPanel = document.getElementById('locations-panel');
+            const sheetsPanel = document.getElementById('sheets-panel');
+            if (!locationsPanel || !sheetsPanel) return;
+
+            let locationListHTML = data.locations.map(loc => `<tr><td>${loc.LocationName}</td><td>${loc.Spreadsheet_ID}</td><td>${loc.DateAdded || 'N/A'}</td><td><button class="btn btn-danger btn-sm delete-location-btn" data-location-name="${loc.LocationName}"><i class="bi bi-trash"></i></button></td></tr>`).join('');
+            locationsPanel.innerHTML = `<div class="report-header"><h5>Existing Locations</h5></div><div class="table-responsive"><table class="table table-sm" id="locations-table"><thead><tr><th>Location Name</th><th>Spreadsheet ID</th><th>Date Added</th><th>Action</th></tr></thead><tbody>${locationListHTML}</tbody></table></div><hr><h5>Register Location</h5><form id="add-location-form"><div class="mb-3"><label class="form-label">Location Name</label><input type="text" id="location_name" class="form-control" required></div><div class="mb-3"><label class="form-label">Spreadsheet URL or ID</label><input type="text" id="spreadsheet_id" class="form-control" required></div><button type="submit" class="btn btn-primary w-100">Register</button></form>`;
+            locationsPanel.addEventListener('click', async (e) => {
+                 if (e.target.closest('.delete-location-btn')) {
+                    const btn = e.target.closest('.delete-location-btn');
+                    const locationName = btn.dataset.locationName;
+                    if (confirm(`Are you sure you want to permanently delete the location "${locationName}"? This cannot be undone.`)) {
+                         const response = await fetch('http://127.0.0.1:5000/admin/delete-location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location_name: locationName }) });
+                         const result = await response.json();
+                         showToast(result.message, result.success ? 'success' : 'danger');
+                         if (result.success) {
+                            const mainDataResponse = await fetch('http://127.0.0.1:5000/get-data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: userData }) });
+                            const newData = await mainDataResponse.json();
+                            renderLocationAndSheetManagementPanel(userData, newData);
+                         }
+                    }
+                 }
+            });
+            document.getElementById('add-location-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const locationName = document.getElementById('location_name').value;
+                let spreadsheetIdInput = document.getElementById('spreadsheet_id').value.trim();
+                const match = spreadsheetIdInput.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+                if (match) { spreadsheetIdInput = match[1]; }
+                const addResponse = await fetch('http://127.0.0.1:5000/add-location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location_name: locationName, spreadsheet_id: spreadsheetIdInput }) });
+                const result = await addResponse.json();
+                showToast(result.message, result.success ? 'success' : 'danger');
+                if (result.success) {
+                    e.target.reset();
+                    const mainDataResponse = await fetch('http://127.0.0.1:5000/get-data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: userData }) });
+                    const newData = await mainDataResponse.json();
+                    renderLocationAndSheetManagementPanel(userData, newData);
+                }
+            });
+
+            const locSelect = `<select id="admin-location-select" class="form-select" required><option value="">-- Select a Location --</option>${data.locations.map(loc => `<option value="${loc.Spreadsheet_ID}">${loc.LocationName}</option>`).join('')}</select>`;
+            sheetsPanel.innerHTML = `<div class="card"><div class="card-body"><div class="row g-4"><div class="col-lg-5"><h5 class="card-title mb-3">Manage Sheets</h5><div class="mb-3"><label class="form-label">Select Location:</label>${locSelect}</div><div id="existing-sheets-container"><h6>Existing Sheets:</h6><div id="existing-sheets-list" class="list-group sheet-list-container"></div></div></div><div class="col-lg-7"><div id="sheet-panel-container"></div></div></div></div>`;
+            const sheetPanelContainer = document.getElementById('sheet-panel-container');
+            const adminLocationDropdown = document.getElementById('admin-location-select');
+
+            const addSchemaField = (container, isDefault = false) => {
+                const fieldRow = document.createElement('div');
+                fieldRow.className = 'row g-3 align-items-center mb-3 field-row';
+                if (isDefault) {
+                    fieldRow.innerHTML = `<div class="col-sm-6 col-md-3"><input type="text" class="form-control form-control-sm field-name" value="CaseID" readonly></div><div class="col-sm-6 col-md-3"><select class="form-select form-select-sm field-type" disabled><option value="text">Text (Locked)</option></select></div><div class="col-12 d-flex justify-content-end align-items-center"><div class="form-check form-switch me-3"><input class="form-check-input field-required" type="checkbox" checked disabled><label class="form-check-label small">Req.</label></div></div>`;
+                } else {
+                    const typeOptions = `<option value="text">Text</option><option value="number">Number</option><option value="options">Options</option><option value="date">Date</option><option value="year">Year</option><option value="pincode">Pincode</option><option value="phone_number">Phone</option><option value="aadhar">Aadhar</option><option value="police_number">Police No.</option><option value="pan">PAN</option><option value="vehicle_number">Vehicle No.</option><option value="time_24hr">Time (24hr)</option><option value="time_12hr">Time (12hr)</option>`;
+                    fieldRow.innerHTML = `<div class="col-sm-6 col-md-3"><input type="text" class="form-control form-control-sm field-name" placeholder="Column Name" required></div><div class="col-sm-6 col-md-3"><select class="form-select form-select-sm field-type">${typeOptions}</select></div><div class="col-md-6"><div class="validation-inputs-container" style="display: none;"><div class="input-group input-group-sm"><input type="number" class="form-control validation-length-input" placeholder="Length"><div class="input-group-text field-is-fixed-container" style="display: none;"><div class="form-check form-switch mb-0" title="Is Fixed Length?"><input class="form-check-input field-is-fixed" type="checkbox"></div></div><input type="text" class="form-control field-format" placeholder="Format"></div></div><div class="options-list-container" style="display: none;"><button type="button" class="btn btn-sm btn-outline-success add-option-btn w-100 mt-1">Add Option</button></div></div><div class="col-12 d-flex justify-content-end align-items-center"><div class="form-check form-switch me-3"><input class="form-check-input field-required" type="checkbox"><label class="form-check-label small">Req.</label></div><button type="button" class="btn btn-sm btn-outline-danger remove-field-btn"><i class="bi bi-trash"></i></button></div>`;
+                }
+                container.appendChild(fieldRow);
+                const typeSelect = fieldRow.querySelector('.field-type');
+                if (typeSelect && (typeSelect.value.includes('text') || typeSelect.value === 'number')) {
+                    const validationContainer = fieldRow.querySelector('.validation-inputs-container');
+                    if (validationContainer) validationContainer.style.display = 'block';
+                }
+            };
+            
+            const renderSheetCreator = () => {
+                sheetPanelContainer.innerHTML = `<h5 class="card-title">Create New Sheet</h5>
+                    <form id="add-sheet-form">
+                        <div class="mb-3"><label class="form-label">New Sheet Name:</label><input type="text" id="admin-new-sheet-name" class="form-control" required></div>
+                        <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch" id="specific-members-only-switch"><label class="form-check-label" for="specific-members-only-switch">Restrict to Specific Members Only</label></div>
+                        <hr>
+                        <h6>Define Columns & Validation</h6>
+                        <div id="schema-fields-container"></div>
+                        <button type="button" id="add-field-btn" class="btn btn-outline-secondary btn-sm mt-2"><i class="bi bi-plus-circle"></i> Add Field</button>
+                        <button type="submit" class="btn btn-success w-100 mt-4">Create Sheet</button>
+                    </form>`;
+                const schemaContainer = document.getElementById('schema-fields-container');
+                addSchemaField(schemaContainer, true);
+                document.getElementById('add-field-btn').onclick = () => addSchemaField(schemaContainer, false);
+                document.getElementById('add-sheet-form').addEventListener('submit', handleAddSheet);
+            };
+            const renderSheetEditor = (sheetName, schema) => {
+                 sheetPanelContainer.innerHTML = `<h5 class="card-title">Edit Sheet: ${sheetName}</h5><form id="edit-sheet-form"><h6>Existing Columns</h6><div class="mb-3 p-3 bg-light rounded">${schema.map(field => `<span class="badge bg-secondary me-1">${field.name}</span>`).join('')}</div><hr><h6 class="mt-4">Add New Column(s)</h6><div id="new-schema-fields-container"></div><button type="button" id="add-new-field-btn" class="btn btn-outline-secondary btn-sm mt-2"><i class="bi bi-plus-circle"></i> Add Field</button><div class="d-flex gap-2 mt-4"><button type="button" id="cancel-edit-btn" class="btn btn-secondary w-50">Cancel</button><button type="submit" class="btn btn-primary w-50">Save Changes</button></div></form>`;
+                document.getElementById('add-new-field-btn').onclick = () => addSchemaField(document.getElementById('new-schema-fields-container'), false);
+                document.getElementById('cancel-edit-btn').onclick = renderSheetCreator;
+                document.getElementById('edit-sheet-form').addEventListener('submit', (e) => handleEditSheet(e, sheetName));
+            };
+            const loadSheetsForAdmin = async (spreadsheetId) => {
+                const sheetList = document.getElementById('existing-sheets-list');
+                if (!spreadsheetId) { sheetList.innerHTML = ''; renderSheetCreator(); return; }
+                sheetList.innerHTML = '<div class="list-group-item">Loading...</div>';
+                currentSpreadsheetId = spreadsheetId;
+                renderSheetCreator();
+                const response = await fetch('http://127.0.0.1:5000/admin/get-sheets-for-location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spreadsheet_id: spreadsheetId }) });
+                const result = await response.json();
+                if (result.success) { sheetList.innerHTML = result.sheet_names.map(name => `<div class="list-group-item d-flex justify-content-between align-items-center">${name}<span><button class="btn btn-warning btn-sm edit-sheet-btn" data-sheetname="${name}"><i class="bi bi-pencil-fill"></i></button><button class="btn btn-danger btn-sm delete-sheet-btn" data-sheetname="${name}"><i class="bi bi-trash"></i></button></span></div>`).join(''); } 
+                else { sheetList.innerHTML = `<div class="list-group-item list-group-item-danger">${result.message}</div>`; }
+            };
+            adminLocationDropdown.addEventListener('change', (e) => loadSheetsForAdmin(e.target.value));
+            document.getElementById('existing-sheets-list').addEventListener('click', async (e) => {
+                const deleteButton = e.target.closest('.delete-sheet-btn');
+                const editButton = e.target.closest('.edit-sheet-btn');
+                if (deleteButton) {
+                    const sheetName = deleteButton.dataset.sheetname;
+                    if (confirm(`Are you sure you want to permanently delete the sheet "${sheetName}"? This will also remove all user access assignments for it.`)) {
+                        const response = await fetch('http://127.0.0.1:5000/admin/delete-sheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spreadsheet_id: adminLocationDropdown.value, sheet_name: sheetName }) });
+                        const result = await response.json();
+                        showToast(result.message, result.success ? 'success' : 'danger');
+                        if (result.success) loadSheetsForAdmin(adminLocationDropdown.value);
+                    }
+                }
+                if (editButton) {
+                    const sheetName = editButton.dataset.sheetname;
+                    const res = await fetch('http://127.0.0.1:5000/admin/get-sheet-schema', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ spreadsheet_id: currentSpreadsheetId, sheet_name: sheetName }) });
+                    const result = await res.json();
+                    if(result.success) { renderSheetEditor(sheetName, result.schema); } 
+                    else { showToast(result.message, 'danger'); }
+                }
+            });
+            function getSchemaDataFromForm(containerSelector) {
+                return Array.from(document.querySelectorAll(`${containerSelector} .field-row`)).map(row => {
+                    const fieldNameInput = row.querySelector('.field-name');
+                    const fieldTypeInput = row.querySelector('.field-type');
+                    const schemaObject = {
+                        name: fieldNameInput.value,
+                        type: fieldTypeInput.value,
+                        length: row.querySelector('.validation-length-input')?.value || null,
+                        format: row.querySelector('.field-format')?.value || null,
+                        required: row.querySelector('.field-required').checked,
+                        isFixed: row.querySelector('.field-is-fixed')?.checked || false
+                    };
+                    if (schemaObject.name.toLowerCase() === 'caseid') { schemaObject.isFixed = true; }
+                    if (schemaObject.type === 'options') {
+                        schemaObject.options = Array.from(row.querySelectorAll('.field-option-value')).map(input => input.value.trim()).filter(value => value);
+                    }
+                    return schemaObject;
+                });
+            }
+            async function handleAddSheet(e) {
+                e.preventDefault();
+                const schema = getSchemaDataFromForm('#schema-fields-container');
+                const isRestricted = document.getElementById('specific-members-only-switch').checked;
+
+                const body = {
+                    spreadsheet_id: adminLocationDropdown.value,
+                    sheet_name: document.getElementById('admin-new-sheet-name').value,
+                    schema: schema,
+                    is_restricted: isRestricted
+                };
+
+                const response = await fetch('http://127.0.0.1:5000/add-sheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                const result = await response.json();
+                showToast(result.message, result.success ? 'success' : 'danger');
+                if (result.success) loadSheetsForAdmin(adminLocationDropdown.value);
+            }
+            async function handleEditSheet(e, sheetName) {
+                e.preventDefault();
+                const newFields = getSchemaDataFromForm('#new-schema-fields-container');
+                if(newFields.length === 0) { showToast('Please add at least one new field to save.', 'warning'); return; }
+                const response = await fetch('http://127.0.0.1:5000/admin/edit-sheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spreadsheet_id: currentSpreadsheetId, sheet_name: sheetName, new_fields: newFields }) });
+                const result = await response.json();
+                showToast(result.message, result.success ? 'success' : 'danger');
+                if (result.success) loadSheetsForAdmin(currentSpreadsheetId);
+            }
+            renderSheetCreator();
+        }
+        async function renderSheetAccessAndReportingPanel(container, locations) {
+            const locOptions = locations.map(loc => `<option value="${loc.Spreadsheet_ID}" data-locationname="${loc.LocationName}">${loc.LocationName}</option>`).join('');
+            const panelHTML = `<div class="card"><div class="card-header"><h5>Sheet Access & Activity</h5></div><div class="card-body"><div class="row"><div class="col-md-6 mb-3"><label for="report-location-select" class="form-label">1. Select Location:</label><select id="report-location-select" class="form-select"><option value="">-- Select a Location --</option>${locOptions}</select></div><div class="col-md-6 mb-3"><label for="report-sheet-select" class="form-label">2. Select Sheet:</label><select id="report-sheet-select" class="form-select" disabled><option>-- Select Location First --</option></select></div></div><div id="activity-log-container" class="activity-log-container mt-3"><p class="text-muted text-center">Select a location and sheet to manage access and view activity.</p></div></div></div>`;
+            container.innerHTML = panelHTML;
+            const locationSelect = document.getElementById('report-location-select');
+            const sheetSelect = document.getElementById('report-sheet-select');
+            locationSelect.addEventListener('change', async (e) => {
+                const spreadsheetId = e.target.value;
+                sheetSelect.innerHTML = '<option>Loading...</option>';
+                document.getElementById('activity-log-container').innerHTML = '<p class="text-muted text-center">Select a sheet to view activity.</p>';
+                if (!spreadsheetId) {
+                    sheetSelect.innerHTML = '<option>-- Select Location First --</option>';
+                    sheetSelect.disabled = true;
+                    return;
+                }
+                const res = await fetch('http://127.0.0.1:5000/admin/get-sheets-for-location', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ spreadsheet_id: spreadsheetId }) });
+                const result = await res.json();
+                if(result.success) {
+                    sheetSelect.innerHTML = `<option value="">-- Select a Sheet --</option>` + result.sheet_names.map(name => `<option value="${name}">${name}</option>`).join('');
+                    sheetSelect.disabled = false;
+                } else { sheetSelect.innerHTML = `<option>Error loading sheets</option>`; }
+            });
+            sheetSelect.addEventListener('change', async (e) => {
+                const sheetName = e.target.value;
+                const selectedOption = locationSelect.options[locationSelect.selectedIndex];
+                const spreadsheetId = locationSelect.value;
+                const locationName = selectedOption.dataset.locationname;
+                const logContainer = document.getElementById('activity-log-container');
+
+                if (!sheetName) {
+                    logContainer.innerHTML = '<p class="text-muted text-center">Select a sheet to view activity.</p>';
+                    return;
+                }
+                logContainer.innerHTML = '<p class="text-center">Loading activity...</p>';
+                const res = await fetch('http://127.0.0.1:5000/admin/get-activity-log', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ spreadsheet_id: spreadsheetId, sheet_name: sheetName, location_name: locationName }) });
+                const result = await res.json();
+                if(result.success) {
+                    let manageAccessButtonHTML = '';
+                    if (result.is_restricted) {
+                        manageAccessButtonHTML = `<button class="btn btn-outline-primary btn-sm manage-users-btn" data-sheetname="${sheetName}" data-spreadsheetid="${spreadsheetId}" data-locationname="${locationName}"><i class="bi bi-people-fill me-2"></i>Manage Access</button>`;
+                    }
+
+                    let tableHTML = `<div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">User Report Status</h6>
+                                        ${manageAccessButtonHTML}
+                                     </div>
+                                     <table class="table table-striped table-sm"><thead><tr><th>Username</th><th>Station</th><th>Status</th><th>Timestamp</th></tr></thead><tbody>`;
+                    
+                    result.report.forEach(entry => {
+                        let statusBadge;
+                        switch (entry.Status) {
+                            case 'Completed Entry': statusBadge = '<span class="badge bg-success">Completed Entry</span>'; break;
+                            case 'Nil Report': statusBadge = '<span class="badge bg-secondary">Nil Report</span>'; break;
+                            default: statusBadge = '<span class="badge bg-warning text-dark">Not Viewed</span>'; break;
+                        }
+                        tableHTML += `<tr><td>${entry.Username}</td><td>${entry.Station}</td><td>${statusBadge}</td><td>${entry.Timestamp || 'N/A'}</td></tr>`;
+                    });
+                    tableHTML += `</tbody></table>`;
+                    logContainer.innerHTML = tableHTML;
+                } else { logContainer.innerHTML = `<div class="alert alert-danger">${result.message}</div>`; }
+            });
+        }
+        
+        // --- EVENT LISTENERS & HANDLERS ---
+        window.addEventListener('DOMContentLoaded', async () => {
+             const userData = JSON.parse(sessionStorage.getItem('userData'));
             if (!userData) { window.location.href = './login.html'; return; }
             document.getElementById('welcome-message').textContent = `Welcome, ${userData.username} (${userData.role})`;
+            
+            // MODIFICATION: Add event listener for the copy button in the QR modal
+            document.getElementById('copy-totp-key-btn').addEventListener('click', () => {
+                const keyInput = document.getElementById('totp-secret-key-input');
+                navigator.clipboard.writeText(keyInput.value).then(() => {
+                    showToast('Key copied to clipboard!', 'info');
+                });
+            });
+
             const container = document.getElementById('view-container');
-
-            const response = await fetch('http://127.0.0.1:5000/get-data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: userData }) });
-            const data = await response.json();
-            if (data.success) {
-                if (userData.role === 'admin') {
-                    container.innerHTML = `<div class="main-container admin-card"><div class="text-center mb-4"><h3>Admin Panel</h3></div>
-                        <ul class="nav nav-tabs" id="admin-tabs" role="tablist">
-                            <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#locations-panel">Location Management</button></li>
-                            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#users-panel">User Management</button></li>
-                            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#sheets-panel">Sheet Management</button></li>
-                        </ul>
-                        <div class="tab-content pt-4"><div class="tab-pane fade show active" id="locations-panel"></div><div class="tab-pane fade" id="users-panel"></div><div class="tab-pane fade" id="sheets-panel"></div></div></div>`;
-                    
-                    let locationListHTML = data.locations.map(loc => `<tr><td>${loc.LocationName}</td><td>${loc.Spreadsheet_ID}</td></tr>`).join('');
-                    document.getElementById('locations-panel').innerHTML = `<div class="report-header"><h5>Existing Locations</h5><div class="btn-group"><button class="btn btn-secondary btn-sm" onclick="downloadReport('pdf', '#locations-table', 'Existing_Locations')"><i class="bi bi-file-earmark-pdf"></i> PDF</button><button class="btn btn-secondary btn-sm" onclick="downloadReport('excel', '#locations-table', 'Existing_Locations')"><i class="bi bi-file-earmark-excel"></i> Excel</button></div></div><div class="table-responsive"><table class="table table-sm" id="locations-table"><thead><tr><th>Location Name</th><th>Spreadsheet ID</th></tr></thead><tbody>${locationListHTML}</tbody></table></div><hr><h5>Register Location</h5><form id="add-location-form"><div class="mb-3"><label class="form-label">Location Name</label><input type="text" id="location_name" class="form-control" required></div><div class="mb-3"><label class="form-label">Spreadsheet URL or ID</label><input type="text" id="spreadsheet_id" class="form-control" required></div><button type="submit" class="btn btn-primary w-100">Register</button></form>`;
-                    document.getElementById('add-location-form').addEventListener('submit', async (e) => {
-                        e.preventDefault();
-                        const locationName = document.getElementById('location_name').value;
-                        let spreadsheetIdInput = document.getElementById('spreadsheet_id').value.trim();
-                        const match = spreadsheetIdInput.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-                        if (match) { spreadsheetIdInput = match[1]; }
-                        const addResponse = await fetch('http://127.0.0.1:5000/add-location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location_name: locationName, spreadsheet_id: spreadsheetIdInput }) });
-                        const result = await addResponse.json();
-                        showToast(result.message, result.success ? 'success' : 'danger');
-                        if (result.success) setTimeout(() => window.location.reload(), 2000);
-                    });
-                    
-                    const userResponse = await fetch('http://127.0.0.1:5000/admin/get-all-users');
-                    const userDataForAdmin = await userResponse.json();
-                    if (userDataForAdmin.success) {
-                        let userTableHTML = userDataForAdmin.users.map(u => `<tr><td>${u.Username}</td><td>${u.Role}</td><td>${u.AccessScope}</td><td>${u.Gender}</td><td>${u.Station}</td></tr>`).join('');
-                        document.getElementById('users-panel').innerHTML = `<div class="report-header"><h5>All Users</h5><div class="btn-group"><button class="btn btn-secondary btn-sm" onclick="downloadReport('pdf', '#users-table', 'All_Users')"><i class="bi bi-file-earmark-pdf"></i> PDF</button><button class="btn btn-secondary btn-sm" onclick="downloadReport('excel', '#users-table', 'All_Users')"><i class="bi bi-file-earmark-excel"></i> Excel</button></div></div><div class="table-responsive user-table-container"><table class="table table-sm table-striped" id="users-table"><thead><tr><th>Username</th><th>Role</th><th>Access</th><th>Gender</th><th>Station</th></tr></thead><tbody>${userTableHTML}</tbody></table></div><hr class="my-4"><div class="row g-4"><div class="col-md-6"><h5>Add User</h5>
-                            <form id="add-user-form"><div class="mb-2"><label class="form-label">Username</label><input type="text" name="username" class="form-control" required></div>
-                            <div class="mb-2"><label class="form-label">Password</label><input type="password" name="password" class="form-control" required></div>
-                            <div class="mb-2"><label class="form-label">Role</label><select name="role" class="form-select" required><option value="normal">Normal</option><option value="sdo">SDO</option><option value="admin">Admin</option></select></div>
-                            <div class="mb-2"><label class="form-label">Access Scope</label><input type="text" name="accessScope" class="form-control" placeholder="e.g. thoothukudi_town or all" required></div>
-                            <div class="mb-2"><label class="form-label">Gender</label><select name="gender" class="form-select" required><option value="Male">Male</option><option value="Female">Female</option></select></div>
-                            <div class="mb-2"><label class="form-label">Station</label><input type="text" name="station" class="form-control" required></div>
-                            <button type="submit" class="btn btn-success w-100 mt-2">Create User</button></form></div>
-                            <div class="col-md-6"><h5>Reset Password</h5><form id="change-password-form"><div class="mb-3"><label class="form-label">Username of User to Change</label><input type="text" id="change_username" class="form-control" required></div>
-                            <div class="mb-3"><label class="form-label">New Password</label><input type="password" id="new_password" class="form-control" required></div>
-                            <button type="submit" class="btn btn-warning w-100">Update Password</button></form></div></div>`;
-                        
-                        document.getElementById('add-user-form').addEventListener('submit', async (e) => {
-                            e.preventDefault();
-                            const response = await fetch('http://127.0.0.1:5000/admin/add-user', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(e.target).entries())) });
-                            const result = await response.json();
-                            showToast(result.message, result.success ? 'success' : 'danger');
-                            if (result.success) setTimeout(() => window.location.reload(), 1500);
+            
+            try {
+                const response = await fetch('http://127.0.0.1:5000/get-data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: userData }) });
+                if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
+                const data = await response.json();
+            
+                if (data.success) {
+                    if (userData.role === 'admin') {
+                        const adminScope = userData.accessScope;
+                        let tabsHTML = ''; let tabPanelsHTML = '';
+                        if (adminScope === 'user_management') {
+                            tabsHTML = `<li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#users-panel">User Management</button></li>`;
+                            tabPanelsHTML = `<div class="tab-pane fade show active" id="users-panel"></div>`;
+                        } else if (adminScope === 'sheet_management') {
+                            tabsHTML = `<li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#locations-panel">Location Mgmt</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#sheets-panel">Sheet Mgmt</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#access-panel">Sheet Access & Reporting</button></li>`;
+                            tabPanelsHTML = `<div class="tab-pane fade show active" id="locations-panel"></div><div class="tab-pane fade" id="sheets-panel"></div><div class="tab-pane fade" id="access-panel"></div>`;
+                        } else {
+                            tabsHTML = `<li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#locations-panel">Location Mgmt</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#users-panel">User Mgmt</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#sheets-panel">Sheet Mgmt</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#access-panel">Sheet Access & Reporting</button></li>`;
+                            tabPanelsHTML = `<div class="tab-pane fade show active" id="locations-panel"></div><div class="tab-pane fade" id="users-panel"></div><div class="tab-pane fade" id="sheets-panel"></div><div class="tab-pane fade" id="access-panel"></div>`;
+                        }
+                        container.innerHTML = `<div class="main-container admin-card"><div class="text-center mb-4"><h3>Admin Panel</h3></div><ul class="nav nav-tabs" id="admin-tabs" role="tablist">${tabsHTML}</ul><div class="tab-content pt-4">${tabPanelsHTML}</div></div>`;
+                        if (document.getElementById('users-panel')) { renderUserManagementPanel(userData, data); }
+                        if (document.getElementById('locations-panel')) { renderLocationAndSheetManagementPanel(userData, data); }
+                        if (document.getElementById('access-panel')) { renderSheetAccessAndReportingPanel(document.getElementById('access-panel'), data.locations); }
+                    } else if (userData.role === 'sdo') {
+                        container.innerHTML = `<div class="main-container"><h5 class="mb-3">Inspector View</h5><p>Select a location to inspect its case files.</p><select class="form-select" id="location-dropdown"><option value="">-- Select Location --</option>${data.locations.map(loc => `<option value="${loc.Spreadsheet_ID}">${loc.LocationName}</option>`).join('')}</select></div><div id="sdo-data-view" class="mt-4"></div>`;
+                        document.getElementById('location-dropdown').addEventListener('change', async (event) => {
+                            const selectedId = event.target.value;
+                            document.getElementById('sdo-data-view').innerHTML = '';
+                            if (!selectedId) return;
+                            const tabResponse = await fetch('http://127.0.0.1:5000/get-data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: userData, spreadsheet_id: selectedId }) });
+                            const tabData = await tabResponse.json();
+                            if (tabData.success) { displayDataInterface('sdo-data-view', selectedId, tabData.categorized_sheets, 'sdo'); }
                         });
-                        document.getElementById('change-password-form').addEventListener('submit', async (e) => {
-                            e.preventDefault();
-                            const response = await fetch('http://127.0.0.1:5000/admin/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: document.getElementById('change_username').value, new_password: document.getElementById('new_password').value }) });
-                            const result = await response.json();
-                            showToast(result.message, result.success ? 'success' : 'danger');
-                            if (result.success) e.target.reset();
-                        });
+                    } else { // Normal User
+                        displayDataInterface('view-container', data.spreadsheet_id, data.categorized_sheets, 'normal');
                     }
+                } else { 
+                    showToast('Error: ' + data.message, 'danger'); 
+                }
+            } catch (error) {
+                console.error("Failed to initialize dashboard:", error);
+                showToast("Could not connect to the server. Please ensure it's running and accessible.", 'danger');
+                container.innerHTML = `<div class="main-container text-center"><h4 class="text-danger">Connection Error</h4><p>Could not connect to the application server. Please ensure it is running and try refreshing the page.</p></div>`;
+            }
+        });
+        
+        document.addEventListener('click', async (event) => {
+            const target = event.target;
+            const spreadsheetCell = target.closest('.spreadsheet-view-table td[contenteditable="true"]');
+            
+            if (!target.closest('#spreadsheet-options-panel') && !spreadsheetCell) {
+                document.getElementById('spreadsheet-options-panel')?.remove();
+            }
+            if (spreadsheetCell) {
+                showOptionsPanel(spreadsheetCell);
+            }
+            if (!target.closest('.spreadsheet-view-table')) { clearSelection(); }
 
-                    const locSelect = `<select id="admin-location-select" class="form-select" required><option value="">-- Select a Location --</option>${data.locations.map(loc => `<option value="${loc.Spreadsheet_ID}">${loc.LocationName}</option>`).join('')}</select>`;
-                    document.getElementById('sheets-panel').innerHTML = `<div class="card"><div class="card-body">
-                        <div class="row g-4"><div class="col-lg-5">
-                            <div class="report-header">
-                                <h5 class="card-title mb-0">Manage Sheets</h5>
-                                <div class="btn-group">
-                                <button class="btn btn-secondary btn-sm" id="pdf-sheets-btn"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
-                                <button class="btn btn-secondary btn-sm" id="excel-sheets-btn"><i class="bi bi-file-earmark-excel"></i> Excel</button>
-                                </div>
-                            </div>
-                            <div class="mb-3"><label class="form-label">Select Location:</label>${locSelect}</div>
-                            <div id="existing-sheets-container"><h6>Existing Sheets:</h6><div id="existing-sheets-list" class="list-group sheet-list-container"></div></div>
-                        </div><div class="col-lg-7"><div id="add-sheet-container" style="display: none;"><h5 class="card-title">Create New Sheet</h5>
-                            <form id="add-sheet-form"><div class="mb-3"><label class="form-label">New Sheet Name:</label><input type="text" id="admin-new-sheet-name" class="form-control" required></div>
-                            <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch" id="female-only-switch"><label class="form-check-label" for="female-only-switch">Female Only Access</label></div><hr>
-                            <h6>Define Columns & Validation</h6><div id="schema-fields-container"></div>
-                            <button type="button" id="add-field-btn" class="btn btn-outline-secondary btn-sm mt-2"><i class="bi bi-plus-circle"></i> Add Field</button>
-                            <button type="submit" class="btn btn-success w-100 mt-4">Create Sheet</button></form>
-                        </div></div></div></div>`;
-                    
-                    const adminLocationDropdown = document.getElementById('admin-location-select');
-                    const loadSheetsForAdmin = async (spreadsheetId) => {
-                        const sheetList = document.getElementById('existing-sheets-list');
-                        if (!spreadsheetId) { sheetList.innerHTML = ''; document.getElementById('add-sheet-container').style.display = 'none'; return; }
-                        sheetList.innerHTML = '<div class="list-group-item">Loading...</div>';
-                        document.getElementById('add-sheet-container').style.display = 'block';
-                        const response = await fetch('http://127.0.0.1:5000/admin/get-sheets-for-location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spreadsheet_id: spreadsheetId }) });
-                        const result = await response.json();
-                        if (result.success) {
-                            sheetList.innerHTML = result.sheet_names.map(name => `<div class="list-group-item d-flex justify-content-between align-items-center">${name}<button class="btn btn-danger btn-sm delete-sheet-btn" data-sheetname="${name}"><i class="bi bi-trash"></i></button></div>`).join('');
-                        } else { sheetList.innerHTML = `<div class="list-group-item list-group-item-danger">${result.message}</div>`; }
-                    };
-                    
-                    adminLocationDropdown.addEventListener('change', (e) => loadSheetsForAdmin(e.target.value));
+            const editBtn = target.closest('.edit-btn');
+            if (editBtn) { const caseData = JSON.parse(editBtn.dataset.casedata); showModal(true, caseData); return; }
+            
+            // *** MODIFICATION: New, robust deletion flow ***
+            const deleteBtn = target.closest('.delete-btn-spreadsheet');
+            if (deleteBtn) {
+                recordUndoState(); // Save state before deleting
+                const caseId = deleteBtn.dataset.caseid;
+                const row = document.getElementById(`row-${caseId}`);
+                if (!row) return;
 
-                    function createAndDownloadSheetReport(format) {
-                        const selectedOption = adminLocationDropdown.options[adminLocationDropdown.selectedIndex];
-                        if (!selectedOption || !selectedOption.value) {
-                            showToast('Please select a location first.', 'warning');
-                            return;
-                        }
-                        const fileName = `Sheets_for_${selectedOption.text.replace(/ /g, '_')}`;
-                        const sheetList = document.getElementById('existing-sheets-list');
-                        const tempTable = document.createElement('table');
-                        
-                        const rows = Array.from(sheetList.children).map(item => {
-                            const sheetName = item.childNodes[0].textContent.trim();
-                            return `<tr><td>${sheetName}</td></tr>`;
-                        }).join('');
-
-                        if (!rows) {
-                           showToast('There are no sheets to export.', 'info');
-                           return;
-                        }
-
-                        tempTable.innerHTML = `<thead><tr><th>Sheet Name</th></tr></thead><tbody>${rows}</tbody>`;
-                        document.body.appendChild(tempTable);
-                        downloadReport(format, tempTable, fileName);
-                        document.body.removeChild(tempTable);
+                if (row.classList.contains('new-row')) {
+                    // If it's a new row, completely remove it from local changes. This is the fix.
+                    delete localChanges.additions[caseId];
+                } else {
+                    // If it's an existing row, add it to the deletions array.
+                    if (!localChanges.deletions.includes(caseId)) {
+                        localChanges.deletions.push(caseId);
                     }
-                     document.getElementById('pdf-sheets-btn').addEventListener('click', () => createAndDownloadSheetReport('pdf'));
-                     document.getElementById('excel-sheets-btn').addEventListener('click', () => createAndDownloadSheetReport('excel'));
+                }
+                
+                renderDataView(); // Re-render the view; the deleted row will now be gone.
+                undoToast.show();
+                updateSaveButtonVisibility();
+                return;
+            }
 
+            const modalDeleteBtn = target.closest('.delete-btn:not(.delete-btn-spreadsheet)');
+            if (modalDeleteBtn) {
+                 if (confirm('This will delete the case immediately from the server. This action cannot be undone. Continue?')) {
+                     const caseId = modalDeleteBtn.dataset.caseid;
+                     const response = await fetch('http://127.0.0.1:5000/delete-case', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spreadsheet_id: currentSpreadsheetId, tab_name: currentTabName, case_id: caseId }) });
+                     const result = await response.json();
+                     showToast(result.message, result.success ? 'success' : 'danger');
+                     if (result.success) {
+                         const activeLink = document.querySelector('.sheet-link.active');
+                         if(activeLink) await loadSheetData(activeLink, true);
+                     }
+                 }
+            }
+            
+            if (target.id === 'add-spreadsheet-row-btn') {
+                recordUndoState();
+                const tempId = `TEMP-${Date.now()}`;
+                const newRowData = { tempId };
+                currentHeaders.forEach(h => { newRowData[h] = ''; });
+                localChanges.additions[tempId] = newRowData;
+                renderDataView();
+                const newRowElement = document.getElementById(`row-${tempId}`);
+                if(newRowElement) newRowElement.querySelector('td[data-header]')?.focus();
+                return;
+            }
+            
+            if (target.id === 'undo-btn') {
+                handleUndo();
+                undoToast.hide();
+            }
 
-                    document.getElementById('existing-sheets-list').addEventListener('click', async (e) => {
-                        const button = e.target.closest('.delete-sheet-btn');
-                        if (button) {
-                            const sheetName = button.dataset.sheetname;
-                            if (confirm(`Are you sure you want to permanently delete the sheet "${sheetName}"?`)) {
-                                const response = await fetch('http://127.0.0.1:5000/admin/delete-sheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spreadsheet_id: adminLocationDropdown.value, sheet_name: sheetName }) });
-                                const result = await response.json();
-                                showToast(result.message, result.success ? 'success' : 'danger');
-                                if (result.success) loadSheetsForAdmin(adminLocationDropdown.value);
-                            }
-                        }
-                    });
+            const manageBtn = target.closest('.manage-users-btn');
+            if (manageBtn) {
+                const sheetName = manageBtn.dataset.sheetname;
+                const spreadsheetId = manageBtn.dataset.spreadsheetid;
+                const locationName = manageBtn.dataset.locationname;
+                
+                document.getElementById('user-assignment-modal-title').textContent = `Manage Access for: ${sheetName}`;
+                const saveBtn = document.getElementById('save-user-assignments-btn');
+                saveBtn.dataset.sheetname = sheetName;
+                saveBtn.dataset.spreadsheetid = spreadsheetId;
+                const listContainer = document.getElementById('user-assignment-modal-list');
+                listContainer.innerHTML = 'Loading users...';
+                
+                const [allUsersRes, assignedUsersRes] = await Promise.all([
+                    fetch('http://127.0.0.1:5000/admin/get-all-users'),
+                    fetch('http://127.0.0.1:5000/admin/get-sheet-permissions', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ spreadsheet_id: spreadsheetId, sheet_name: sheetName }) })
+                ]);
+                const allUsersData = await allUsersRes.json();
+                const assignedUsersData = await assignedUsersRes.json();
+
+                if (allUsersData.success && assignedUsersData.success) {
+                    const assignedUsernames = new Set(assignedUsersData.assigned_users);
+                    const relevantUsers = allUsersData.users.filter(user => user.Role === 'sdo' || (user.Role === 'normal' && user.AccessScope === locationName));
                     
-                    const fieldsContainer = document.getElementById('schema-fields-container');
-                    const addSchemaField = (isDefault = false) => {
-                        const fieldRow = document.createElement('div');
-                        fieldRow.className = 'row g-3 align-items-center mb-3 field-row';
-                        const typeOptions = `
-                            <option value="text">Text (General)</option>
-                            <option value="number">Number (General)</option>
-                            <option value="date">Date (YYYY-MM-DD)</option>
-                            <option value="year">Year (4-digit)</option>
-                            <option value="pincode">Pincode (6-digit)</option>
-                            <option value="phone_number">Phone Number (10-digit)</option>
-                            <option value="aadhar">Aadhar Number (12-digit)</option>
-                            <option value="police_number">Police Number (3-4 digit)</option>
-                            <option value="pan">PAN Number</option>
-                            <option value="vehicle_number">Vehicle Number</option>
-                            <option value="time_24hr">Time (24 Hr)</option>
-                            <option value="time_12hr">Time (12 Hr)</option>
-                            <option value="latitude_tn">Latitude (TN)</option>
-                            <option value="longitude_tn">Longitude (TN)</option>
-                        `;
+                    listContainer.innerHTML = relevantUsers.length > 0
+                        ? relevantUsers.map(user => `<label class="list-group-item d-flex align-items-center" data-gender="${user.Gender.toLowerCase()}"><input class="form-check-input me-3" type="checkbox" value="${user.Username}" ${assignedUsernames.has(user.Username) ? 'checked' : ''}> ${user.Username} <small class="text-muted ms-auto">${user.Station}</small></label>`).join('')
+                        : `<div class="list-group-item">No SDOs or users for the "${locationName}" location found.</div>`;
 
-                        fieldRow.innerHTML = `
-                            <div class="col-sm-6 col-md-3"><input type="text" class="form-control form-control-sm field-name" value="${isDefault ? 'CaseID' : ''}" placeholder="Column Name" ${isDefault ? 'readonly' : ''} required></div>
-                            <div class="col-sm-6 col-md-3"><select class="form-select form-select-sm field-type" ${isDefault ? 'disabled' : ''}>${typeOptions}</select></div>
-                            <div class="col-md-6">
-                                <div class="input-group input-group-sm">
-                                    <input type="number" class="form-control validation-length-input" placeholder="Length">
-                                    <div class="input-group-text field-format-container"><input class="form-control form-control-sm field-format" placeholder="Format e.g. __/__"></div>
-                                    <div class="form-check form-switch ps-5 pt-1"><input class="form-check-input validation-fixed-checkbox"><label class="form-check-label small">Fixed</label></div>
-                                </div>
-                            </div>
-                            <div class="col-md-12 d-flex align-items-center justify-content-end">
-                                <div class="form-check form-switch"><input class="form-check-input field-required" type="checkbox" ${isDefault ? 'checked' : ''}><label class="form-check-label small">Required</label></div>
-                            </div>
-                            ${!isDefault ? '<div class="col-12"><button type="button" class="btn btn-sm btn-outline-danger w-100 remove-field-btn">Remove</button></div>' : ''}`;
-                        fieldsContainer.appendChild(fieldRow);
+                    const searchInput = document.getElementById('user-assignment-search');
+                    searchInput.oninput = () => {
+                        const searchTerm = searchInput.value.toLowerCase();
+                        listContainer.querySelectorAll('.list-group-item').forEach(item => {
+                            item.style.display = item.textContent.toLowerCase().includes(searchTerm) ? 'flex' : 'none';
+                        });
                     };
-                    addSchemaField(true);
-                    document.getElementById('add-field-btn').onclick = () => addSchemaField(false);
-                    fieldsContainer.addEventListener('change', e => {
-                        if (e.target.classList.contains('field-type')) {
-                            const row = e.target.closest('.field-row');
-                            const customValidationGroup = row.querySelector('.input-group');
-                            const isGeneralType = e.target.value === 'text' || e.target.value === 'number';
-                            
-                            customValidationGroup.style.display = isGeneralType ? 'flex' : 'none';
-                            
-                            const lengthInput = row.querySelector('.validation-length-input');
-                            const fixedSwitch = row.querySelector('.validation-fixed-checkbox').parentElement;
-                            const formatInput = row.querySelector('.field-format-container');
-                            
-                            lengthInput.style.display = 'block';
-                            formatInput.style.display = 'flex';
-                            fixedSwitch.style.display = e.target.value === 'number' ? 'block' : 'none';
+                    userAssignmentModal.show();
+                } else { showToast('Failed to load user data.', 'danger'); }
+            }
+
+            if (target.closest('.remove-field-btn')) { target.closest('.field-row').remove(); }
+            if (target.classList.contains('add-option-btn')) { addOptionInput(target.parentElement); }
+            if (target.closest('.remove-option-btn')) { target.closest('.input-group').remove(); }
+        });
+
+        async function saveAllPendingChanges() {
+            const saveButton = document.getElementById('save-changes-button');
+            const originalHTML = saveButton.innerHTML;
+            saveButton.disabled = true;
+            saveButton.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Submitting...`;
+
+            const caseIdHeader = currentHeaders.find(h => h.toLowerCase() === 'caseid') || currentHeaders[0];
+            for (const tempId in localChanges.additions) {
+                const newCaseId = localChanges.additions[tempId][caseIdHeader]?.trim();
+                if (!newCaseId) {
+                    showToast(`Error: A new row is missing its required CaseID.`, 'danger');
+                    saveButton.disabled = false;
+                    saveButton.innerHTML = originalHTML;
+                    return;
+                }
+            }
+            
+            const payload = {
+                spreadsheet_id: currentSpreadsheetId,
+                tab_name: currentTabName,
+                additions: Object.values(localChanges.additions).map(d => ({ case_data: d })),
+                updates: Object.entries(localChanges.updates).map(([id, data]) => ({ case_id: id, new_data: data })),
+                deletions: localChanges.deletions
+            };
+            
+            try {
+                const response = await fetch('http://127.0.0.1:5000/bulk-update-cases', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToast(result.message, "success");
+                    
+                    const caseIdKey = currentHeaders.find(h => h.toLowerCase() === 'caseid') || currentHeaders[0];
+                    currentData = currentData.filter(row => !localChanges.deletions.includes(row[caseIdKey]));
+                    currentData.forEach(row => {
+                        const caseId = row[caseIdKey];
+                        if (localChanges.updates[caseId]) {
+                            Object.assign(row, localChanges.updates[caseId]);
                         }
                     });
-                    fieldsContainer.addEventListener('click', e => { if (e.target.closest('.remove-field-btn')) e.target.closest('.field-row').remove(); });
-                    document.getElementById('add-sheet-form').addEventListener('submit', async (e) => {
-                        e.preventDefault();
-                        const schema = Array.from(document.querySelectorAll('.field-row')).map(row => ({
-                            name: row.querySelector('.field-name').value, 
-                            type: row.querySelector('.field-type').value,
-                            length: row.querySelector('.validation-length-input').value || null,
-                            isFixed: row.querySelector('.validation-fixed-checkbox').checked,
-                            format: row.querySelector('.field-format').value || null,
-                            required: row.querySelector('.field-required').checked
-                        }));
-                        const response = await fetch('http://127.0.0.1:5000/add-sheet', {
-                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                                spreadsheet_id: adminLocationDropdown.value, 
-                                sheet_name: document.getElementById('admin-new-sheet-name').value, 
-                                schema: schema,
-                                isFemaleOnly: document.getElementById('female-only-switch').checked
-                            })
-                        });
-                        const result = await response.json();
-                        showToast(result.message, result.success ? 'success' : 'danger');
-                        if (result.success) setTimeout(() => loadSheetsForAdmin(adminLocationDropdown.value), 1500);
+                    Object.values(localChanges.additions).forEach(newRow => {
+                        delete newRow.tempId;
+                        currentData.push(newRow);
                     });
-                } else if (userData.role === 'sdo') {
-                    container.innerHTML = `<div class="main-container"><h5 class="mb-3">Inspector View</h5><p>Select a location to inspect its case files.</p>
-                                            <select class="form-select" id="location-dropdown"><option value="">-- Select Location --</option></select></div>
-                                            <div id="sdo-data-view" class="mt-4"></div>`;
-                    data.locations.forEach(loc => { document.getElementById('location-dropdown').innerHTML += `<option value="${loc.Spreadsheet_ID}">${loc.LocationName}</option>`; });
-                    document.getElementById('location-dropdown').addEventListener('change', async (event) => {
-                        const selectedId = event.target.value;
-                        if (!selectedId) { document.getElementById('sdo-data-view').innerHTML = ''; return; }
-                        const tabResponse = await fetch('http://127.0.0.1:5000/get-data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: userData, spreadsheet_id: selectedId }) });
-                        const tabData = await tabResponse.json();
-                        if (tabData.success) { displayDataInterface('sdo-data-view', selectedId, tabData.allowed_tabs, 'sdo'); }
+
+                    localChanges = { additions: {}, updates: {}, deletions: [] };
+                    undoStack = [];
+                    renderDataView();
+                } else {
+                    showToast(`Save failed: ${result.message}`, "danger");
+                }
+            } catch (error) {
+                showToast("A network error occurred while saving changes.", "danger");
+            } finally {
+                saveButton.disabled = false;
+                saveButton.innerHTML = originalHTML;
+                updateSaveButtonVisibility();
+            }
+        }
+        document.getElementById('save-changes-button').addEventListener('click', saveAllPendingChanges);
+        
+        document.addEventListener('input', (event) => {
+            const cell = event.target;
+            if (cell.tagName === 'TD' && cell.hasAttribute('contenteditable')) {
+                 if(!cell.isChanging) { 
+                    recordUndoState();
+                    cell.isChanging = true;
+                 }
+            }
+        }, true);
+        
+        document.addEventListener('blur', (event) => {
+            const cell = event.target;
+            if (cell.tagName === 'TD' && cell.hasAttribute('contenteditable')) {
+                cell.isChanging = false;
+                const row = cell.closest('tr');
+                const caseId = row.dataset.caseid;
+                if (!caseId) return;
+                const isNew = row.classList.contains('new-row');
+                const changeStore = isNew ? localChanges.additions : localChanges.updates;
+                
+                if (!changeStore[caseId]) {
+                    changeStore[caseId] = isNew ? { tempId: caseId } : {};
+                    row.querySelectorAll('td[data-header]').forEach(c => {
+                        changeStore[caseId][c.dataset.header] = c.textContent;
                     });
                 } else {
-                    displayDataInterface('view-container', data.spreadsheet_id, data.allowed_tabs, 'normal');
+                    changeStore[caseId][cell.dataset.header] = cell.textContent;
                 }
-            } else { showToast('Error: ' + data.message, 'danger'); }
-        });
+                
+                row.classList.add('unsaved-change');
+                updateSaveButtonVisibility();
+            }
+        }, true);
         
         document.getElementById('case-form').addEventListener('submit', async function(event) {
             event.preventDefault();
             const validationPref = localStorage.getItem('dataValidation') !== 'false';
-            
-            if (validationPref && !event.target.checkValidity()) {
-                event.target.reportValidity();
-                return;
-            }
-
-            const caseData = Object.fromEntries(new FormData(event.target).entries());
+            if (validationPref && !this.checkValidity()) { this.reportValidity(); return; }
+            const caseData = Object.fromEntries(new FormData(this).entries());
             const isEditing = !!currentlyEditingCaseId;
             const url = isEditing ? 'http://127.0.0.1:5000/edit-case' : 'http://127.0.0.1:5000/add-case';
-            
-            const body = { 
-                spreadsheet_id: currentSpreadsheetId, 
-                tab_name: currentTabName, 
-                should_validate: validationPref,
-                ...(isEditing ? { case_id: currentlyEditingCaseId, new_data: caseData } : { case_data: caseData }) 
-            };
-            
+            const body = { spreadsheet_id: currentSpreadsheetId, tab_name: currentTabName, should_validate: validationPref, ...(isEditing ? { case_id: currentlyEditingCaseId, new_data: caseData } : { case_data: caseData }) };
             const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
             const result = await response.json();
             showToast(result.message, result.success ? 'success' : 'danger');
-            if (result.success) { caseModal.hide(); document.querySelector('.nav-link.active').click(); }
+            if (result.success) { 
+                caseModal.hide(); 
+                const activeLink = document.querySelector('.sheet-link.active');
+                if(activeLink) await loadSheetData(activeLink, true);
+            }
         });
 
         document.getElementById('download-template-btn').addEventListener('click', (e) => {
             e.preventDefault();
-            const csvContent = "data:text/csv;charset=utf-8," + currentHeaders.map(h => `"${h}"`).join(',');
-            const encodedUri = encodeURI(csvContent);
+            if(currentHeaders.length === 0){ showToast('Cannot generate template. Headers not loaded.', 'danger'); return; }
+            const headers = currentHeaders.map(h => `"${h}"`).join(',');
+            const csvContent = `${headers}\n`;
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
             link.setAttribute("download", `${currentTabName}_template.csv`);
+            link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -771,141 +1238,188 @@
             event.preventDefault();
             const fileInput = document.getElementById('bulk-file-input');
             const file = fileInput.files[0];
-
-            if (!file) {
-                showToast("Please select a file to upload.", 'warning');
-                return;
-            }
-
+            if (!file) { showToast("Please select a file to upload.", 'warning'); return; }
             const reader = new FileReader();
             reader.onload = async function(e) {
                 try {
                     const data = e.target.result;
                     let workbook;
-                    if (file.name.toLowerCase().endsWith('.csv')) {
-                         workbook = XLSX.read(data, {type: 'string'});
-                    } else {
-                         workbook = XLSX.read(data, {type: 'array'});
-                    }
-
+                    if (file.name.toLowerCase().endsWith('.csv')) { workbook = XLSX.read(data, {type: 'string'}); } else { workbook = XLSX.read(data, {type: 'array'}); }
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
                     const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                    
-                    if (rows.length < 2) {
-                        showToast("The uploaded file is empty or contains no data.", 'warning');
-                        return;
-                    }
-
+                    if (rows.length < 2) { showToast("The uploaded file is empty or contains no data.", 'warning'); return; }
                     let fileHeaders = rows[0].map(h => String(h).trim());
-                    if (fileHeaders.length > 0) {
-                        fileHeaders[0] = fileHeaders[0].replace(/^\uFEFF/, '');
-                    }
-                    
+                    if (fileHeaders.length > 0) { fileHeaders[0] = fileHeaders[0].replace(/^\uFEFF/, ''); }
                     const expectedHeaders = currentHeaders.map(h => String(h).trim());
-
                     const headersMatch = expectedHeaders.length === fileHeaders.length && expectedHeaders.every((h, i) => h.toLowerCase() === fileHeaders[i].toLowerCase());
-
-                    if (!headersMatch) {
-                        const errorMsg = `Header mismatch. Expected: [${expectedHeaders.join(', ')}]. Found: [${fileHeaders.join(', ')}]. Please use the template.`;
-                        showToast(errorMsg, 'danger');
-                        console.error("Header Mismatch. Expected:", expectedHeaders, "Got:", fileHeaders);
-                        return;
-                    }
-
+                    if (!headersMatch) { const errorMsg = `Header mismatch. Expected: [${expectedHeaders.join(', ')}]. Found: [${fileHeaders.join(', ')}].`; showToast(errorMsg, 'danger'); return; }
                     const casesData = XLSX.utils.sheet_to_json(worksheet, {raw: false, dateNF:'YYYY-MM-DD'});
-
-                    const remappedCasesData = casesData.map(row => {
-                        const newRow = {};
-                        currentHeaders.forEach(originalHeader => {
-                            const fileKey = Object.keys(row).find(fh => fh.trim().toLowerCase() === originalHeader.trim().toLowerCase());
-                            if(fileKey) {
-                                newRow[originalHeader] = row[fileKey];
-                            }
-                        });
-                        return newRow;
-                    });
-
+                    const remappedCasesData = casesData.map(row => { const newRow = {}; currentHeaders.forEach(originalHeader => { const fileKey = Object.keys(row).find(fh => fh.trim().toLowerCase() === originalHeader.trim().toLowerCase()); if(fileKey) { newRow[originalHeader] = row[fileKey]; } }); return newRow; });
                     const validationPref = localStorage.getItem('dataValidation') !== 'false';
-                    const body = {
-                        spreadsheet_id: currentSpreadsheetId,
-                        tab_name: currentTabName,
-                        should_validate: validationPref,
-                        cases_data: remappedCasesData
-                    };
-
+                    const body = { spreadsheet_id: currentSpreadsheetId, tab_name: currentTabName, should_validate: validationPref, cases_data: remappedCasesData };
                     const response = await fetch('http://127.0.0.1:5000/bulk-add-cases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                     const result = await response.json();
                     showToast(result.message, result.success ? 'success' : 'danger');
-                    if (result.success) {
-                        bulkCaseModal.hide();
-                        fileInput.value = '';
-                        document.querySelector('.nav-link.active').click();
+                    if (result.success) { 
+                        bulkCaseModal.hide(); 
+                        fileInput.value = ''; 
+                        const activeLink = document.querySelector('.sheet-link.active');
+                        if(activeLink) await loadSheetData(activeLink, true);
                     }
-                } catch (error) {
-                    showToast('Failed to read or process the file. Please ensure it is a valid CSV or Excel file.', 'danger');
-                    console.error("File processing error:", error);
-                }
+                } catch (error) { showToast('Failed to read or process the file. Ensure it is a valid CSV or Excel file.', 'danger'); }
             };
-            
-            if (file.name.toLowerCase().endsWith('.csv')) {
-                reader.readAsText(file);
-            } else {
-                reader.readAsArrayBuffer(file);
-            }
-        });
-        
-        document.addEventListener('click', async (event) => {
-            const editBtn = event.target.closest('.edit-btn');
-            if (editBtn) {
-                const caseData = JSON.parse(editBtn.dataset.casedata);
-                showModal(true, caseData); 
-                return; 
-            }
-
-            const deleteBtn = event.target.closest('.delete-btn');
-            if (deleteBtn) {
-                const caseIdKey = currentHeaders.find(h => h.toLowerCase() === 'caseid');
-                const caseId = deleteBtn.dataset.caseid;
-                const row = document.getElementById(`row-${caseId}`);
-                row.classList.add('pending-deletion');
-                undoToast.show();
-
-                const undoBtn = document.getElementById('undo-btn');
-                
-                const undoHandler = () => {
-                    clearTimeout(deleteTimeout);
-                    row.classList.remove('pending-deletion');
-                    undoToast.hide();
-                    undoBtn.removeEventListener('click', undoHandler);
-                };
-                
-                undoBtn.addEventListener('click', undoHandler);
-
-                deleteTimeout = setTimeout(async () => {
-                    undoBtn.removeEventListener('click', undoHandler);
-                    const response = await fetch('http://127.0.0.1:5000/delete-case', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ spreadsheet_id: currentSpreadsheetId, tab_name: currentTabName, case_id: caseId })
-                    });
-                    const result = await response.json();
-                    undoToast.hide();
-                    showToast(result.message, result.success ? 'success' : 'danger');
-                    if (result.success) {
-                        const dataRow = document.getElementById(`row-${caseId}`);
-                        if(dataRow) dataRow.remove();
-                    } else {
-                        const dataRow = document.getElementById(`row-${caseId}`);
-                        if(dataRow) dataRow.classList.remove('pending-deletion');
-                    }
-                }, 5000);
-            }
+            if (file.name.toLowerCase().endsWith('.csv')) { reader.readAsText(file); } else { reader.readAsArrayBuffer(file); }
         });
 
         document.getElementById('logout-button').addEventListener('click', () => {
             sessionStorage.removeItem('userData');
             window.location.href = './login.html';
+        });
+        
+        window.addEventListener('beforeunload', (event) => {
+            if (Object.keys(localChanges.additions).length > 0 || Object.keys(localChanges.updates).length > 0 || Object.keys(localChanges.deletions).length > 0) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+        });
+
+        // --- MULTI-CELL SELECTION AND COPY/PASTE LOGIC ---
+        function getCellCoords(cell) { return { row: cell.parentElement.rowIndex, col: cell.cellIndex }; }
+        function clearSelection() {
+            document.querySelectorAll('.spreadsheet-view-table td.cell-selected').forEach(c => c.classList.remove('cell-selected'));
+            selectionStartCell = null;
+            selectionEndCell = null;
+        }
+        function updateSelectionUI() {
+            document.querySelectorAll('.spreadsheet-view-table td.cell-selected').forEach(c => c.classList.remove('cell-selected'));
+            if (!selectionStartCell || !selectionEndCell) return;
+            const start = getCellCoords(selectionStartCell);
+            const end = getCellCoords(selectionEndCell);
+            const table = document.getElementById('main-spreadsheet-table');
+            if (!table) return;
+
+            for (let i = Math.min(start.row, end.row); i <= Math.max(start.row, end.row); i++) {
+                for (let j = Math.min(start.col, end.col); j <= Math.max(start.col, end.col); j++) {
+                    const cell = table.rows[i]?.cells[j];
+                    if (cell && !cell.classList.contains('row-header')) {
+                        cell.classList.add('cell-selected');
+                    }
+                }
+            }
+        }
+        
+        document.addEventListener('mousedown', (e) => {
+            const cell = e.target.closest('.spreadsheet-view-table td');
+            if (!cell || cell.classList.contains('row-header') || !cell.closest('#main-spreadsheet-table')) return;
+            
+            isMouseDown = true;
+            isDragging = false; 
+
+            if (e.shiftKey && lastActiveCell) {
+                 e.preventDefault();
+                 selectionStartCell = lastActiveCell;
+                 selectionEndCell = cell;
+            } else {
+                 clearSelection();
+                 selectionStartCell = cell;
+                 selectionEndCell = cell;
+                 lastActiveCell = cell;
+            }
+            updateSelectionUI();
+        });
+        document.addEventListener('mouseover', (e) => {
+            if (!isMouseDown) return;
+            isDragging = true;
+            const cell = e.target.closest('.spreadsheet-view-table td');
+            if (!cell || cell.classList.contains('row-header')) return;
+            
+            selectionEndCell = cell;
+            updateSelectionUI();
+        });
+        document.addEventListener('mouseup', (e) => {
+            isMouseDown = false;
+            if (!isDragging && e.target.hasAttribute('contenteditable')) {
+                e.target.focus();
+            }
+            isDragging = false;
+        });
+
+        document.addEventListener('keydown', async (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                handleUndo();
+                return;
+            }
+
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+                if (!selectionStartCell || !selectionEndCell) return;
+                e.preventDefault();
+                const start = getCellCoords(selectionStartCell), end = getCellCoords(selectionEndCell);
+                const table = document.getElementById('main-spreadsheet-table');
+                let copyString = '';
+                for (let i = Math.min(start.row, end.row); i <= Math.max(start.row, end.row); i++) {
+                    let rowString = [];
+                    for (let j = Math.min(start.col, end.col); j <= Math.max(start.col, end.col); j++) {
+                        rowString.push(table.rows[i]?.cells[j]?.textContent || '');
+                    }
+                    copyString += rowString.join('\t') + '\n';
+                }
+                await navigator.clipboard.writeText(copyString.trim());
+                showToast('Copied to clipboard!', 'info');
+                return;
+            }
+
+            if (e.shiftKey && e.key.startsWith('Arrow')) {
+                e.preventDefault();
+                if (!lastActiveCell) return;
+                if (!selectionStartCell) selectionStartCell = lastActiveCell;
+
+                const currentCoords = getCellCoords(lastActiveCell);
+                let nextRow = currentCoords.row;
+                let nextCol = currentCoords.col;
+
+                if (e.key === 'ArrowUp') nextRow--;
+                if (e.key === 'ArrowDown') nextRow++;
+                if (e.key === 'ArrowLeft') nextCol--;
+                if (e.key === 'ArrowRight') nextCol++;
+
+                const table = document.getElementById('main-spreadsheet-table');
+                const targetCell = table.rows[nextRow]?.cells[nextCol];
+
+                if (targetCell && !targetCell.classList.contains('row-header')) {
+                    selectionEndCell = targetCell;
+                    lastActiveCell = targetCell;
+                    updateSelectionUI();
+                }
+            }
+        });
+
+        document.addEventListener('paste', async (e) => {
+            let targetCell = selectionStartCell || lastActiveCell;
+            if (!targetCell) return; 
+            
+            e.preventDefault();
+            recordUndoState();
+            
+            const pasteData = await navigator.clipboard.readText();
+            const dataRows = pasteData.split(/\r?\n/).map(row => row.split('\t'));
+            const table = document.getElementById('main-spreadsheet-table');
+            const startCoords = getCellCoords(targetCell);
+
+            dataRows.forEach((rowData, rowIndex) => {
+                const targetRowEl = table.rows[startCoords.row + rowIndex];
+                if (!targetRowEl) return;
+                
+                rowData.forEach((cellData, colIndex) => {
+                    const cellToPaste = targetRowEl.cells[startCoords.col + colIndex];
+                    if (cellToPaste && cellToPaste.hasAttribute('contenteditable')) {
+                        cellToPaste.textContent = cellData;
+                        cellToPaste.dispatchEvent(new Event('blur', { bubbles: true }));
+                    }
+                });
+            });
+            showToast('Data pasted!', 'info');
         });
     </script>
 </body>
